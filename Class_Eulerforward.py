@@ -64,7 +64,7 @@ class Eulerforward(object):
         print(' ')
         self.reportInitialState()
         tlen = int(self.P['tmax'] / self.P['Dt'])
-        xlen = int(self.P['tmax'] / self.P['Dx'])
+        xlen = int(self.P['xmax'] / self.P['Dx'])
 		
         # Initialize time array
         self.time = np.linspace(0,self.P['tmax'],tlen)
@@ -77,6 +77,8 @@ class Eulerforward(object):
         for t in range(1,tlen):
             for j in range(0,xlen):
                 C_matrix[t,j]=C_matrix[t-1,j]-self.P['u0'][j]*(C_matrix[t-1,j]-C_matrix[t-1,j-1])*self.P['Dt']/self.P['Dx']+self.P['E'][j]*self.P['Dt']-self.P['k']*C_matrix[t-1,j]*self.P['Dt']
+            if np.mod(t,np.int(tlen/10.))==0:
+                print('Progress is at ', t/tlen*100., 'percent')
 
 
         self.results = C_matrix

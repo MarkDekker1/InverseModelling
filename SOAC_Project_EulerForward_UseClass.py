@@ -13,8 +13,8 @@ import Class_Eulerforward as EF
 xmax=100
 Dx=1
 xlen=np.int(xmax/Dx)
-tmax=100
-Dt=0.01
+tmax=1000
+Dt=0.1
 tlen=np.int(tmax/Dt)
 xvec=np.zeros(100)
 k=0.1
@@ -69,15 +69,18 @@ line, = ax.plot([], [], lw=2)
 
 def init():
     line.set_data([], [])
-    return line,
+    time_text.set_text('time = 0.0')
+    return line,time_text
 
 def animate(i):
     x = xvec
     y = Run.results[i]
     line.set_data(x, y)
-    return line,
+    time_text.set_text('time = %.1f' % i )
+    return line,time_text
 
+time_text = plt.text(0.1, 0.1, '', zorder=10)
 anim = animation.FuncAnimation(fig, animate, init_func=init,
-                               frames=25000, interval=0.01, blit=True)
+                               frames=25000, interval=20, blit=True)
 
 plt.show()
