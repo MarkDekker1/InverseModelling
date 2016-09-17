@@ -17,7 +17,6 @@ tmax=100
 Dt=0.01
 tlen=np.int(tmax/Dt)
 xvec=np.zeros(100)
-u0=10
 k=0.1
 
 #Set up E
@@ -28,6 +27,12 @@ for j in range(0,xlen):
     xvec[j]=x
     if x==25 or x==50 or x==75:
         E[j]=E0
+        
+#Set up u0
+u0=np.zeros(100)
+for j in range(0,xlen):
+    u0[j]=np.abs(np.sin(j/xlen*2.*np.pi))*5.+5.
+        
     
 #Set up C
 C=np.zeros(100)

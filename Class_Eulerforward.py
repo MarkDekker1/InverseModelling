@@ -76,7 +76,7 @@ class Eulerforward(object):
             
         for t in range(1,tlen):
             for j in range(0,xlen):
-                C_matrix[t,j]=C_matrix[t-1,j]-self.P['u0']*(C_matrix[t-1,j]-C_matrix[t-1,j-1])*self.P['Dt']/self.P['Dx']+self.P['E'][j]*self.P['Dt']-self.P['k']*C_matrix[t-1,j]*self.P['Dt']
+                C_matrix[t,j]=C_matrix[t-1,j]-self.P['u0'][j]*(C_matrix[t-1,j]-C_matrix[t-1,j-1])*self.P['Dt']/self.P['Dx']+self.P['E'][j]*self.P['Dt']-self.P['k']*C_matrix[t-1,j]*self.P['Dt']
 
 
         self.results = C_matrix
