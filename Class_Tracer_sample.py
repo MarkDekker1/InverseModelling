@@ -1,7 +1,7 @@
 
 # Sample Usage of Class_Tracer.py
 
-%matplotlib
+#%matplotlib
 from Class_Tracer import *
 
 #Constants
@@ -37,5 +37,30 @@ Parameter_initial = {
     }
 
 
-m1 = TracerModel(Parameter_initial,method='Upwind',initialvalue=0)
+m1 = TracerModel(Parameter_initial,method='Leapfrog',initialvalue=0)
 m1.integrateModel()
+
+#%% Animation
+from matplotlib import animation
+
+fig = plt.figure()
+ax = plt.axes(xlim=(0, xmax), ylim=(0,1))
+line, = ax.plot([], [], lw=2)
+
+def init():
+    line.set_data([], [])
+    time_text.set_text('time = 0.0')
+    return line,time_text
+
+def animate(i):
+    x = xvec
+    y = m1.results[i]
+    line.set_data(x, y)
+    time_text.set_text('time = %.1f' % i )
+    return line,time_text
+
+time_text = plt.text(0.1, 0.1, '', zorder=10)
+anim = animation.FuncAnimation(fig, animate, init_func=init,
+                               frames=25000, interval=20, blit=True)
+
+plt.show()
