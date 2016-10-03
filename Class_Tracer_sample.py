@@ -8,7 +8,7 @@ from Class_Tracer import *
 xmax=100
 Dx=1
 xlen=np.int(xmax/Dx)
-tmax=1000
+tmax=100
 Dt=0.1
 tlen=np.int(tmax/Dt)
 xvec=np.zeros(100)

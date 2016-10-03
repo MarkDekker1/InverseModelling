@@ -64,7 +64,11 @@ plt.tick_params(axis='both', which='major', labelsize=10)
 from matplotlib import animation
 
 fig = plt.figure()
+<<<<<<< HEAD
 ax = plt.axes(xlim=(0, xmax), ylim=(0,1))
+=======
+ax = plt.axes(xlim=(0, xmax), ylim=(0,2))
+>>>>>>> 6b7a42031dc2d93f7f01bb51fb07e22e927f03fb
 line, = ax.plot([], [], lw=2)
 
 def init():
