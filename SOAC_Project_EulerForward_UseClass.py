@@ -31,7 +31,7 @@ for j in range(0,xlen):
 #Set up u0
 u0=np.zeros(100)
 for j in range(0,xlen):
-    u0[j]=np.abs(np.sin(j/xlen*2.*np.pi))*5.+5.
+    u0[j]=5.
         
     
 #Set up C
@@ -64,7 +64,11 @@ plt.tick_params(axis='both', which='major', labelsize=10)
 from matplotlib import animation
 
 fig = plt.figure()
-ax = plt.axes(xlim=(0, xmax), ylim=(0,0.5))
+<<<<<<< HEAD
+ax = plt.axes(xlim=(0, xmax), ylim=(0,1))
+=======
+ax = plt.axes(xlim=(0, xmax), ylim=(0,2))
+>>>>>>> 6b7a42031dc2d93f7f01bb51fb07e22e927f03fb
 line, = ax.plot([], [], lw=2)
 
 def init():
@@ -74,7 +78,7 @@ def init():
 
 def animate(i):
     x = xvec
-    y = Run.results[i]
+    y = m1.results[i]
     line.set_data(x, y)
     time_text.set_text('time = %.1f' % i )
     return line,time_text
