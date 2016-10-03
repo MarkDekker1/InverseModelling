@@ -1,7 +1,7 @@
 
 # Sample Usage of Class_Tracer.py
 
-%matplotlib
+#%matplotlib
 from Class_Tracer import *
 
 #Constants
