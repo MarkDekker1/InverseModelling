@@ -64,7 +64,7 @@ plt.tick_params(axis='both', which='major', labelsize=10)
 from matplotlib import animation
 
 fig = plt.figure()
-ax = plt.axes(xlim=(0, xmax), ylim=(0,0.5))
+ax = plt.axes(xlim=(0, xmax), ylim=(0,2))
 line, = ax.plot([], [], lw=2)
 
 def init():
@@ -74,7 +74,7 @@ def init():
 
 def animate(i):
     x = xvec
-    y = Run.results[i]
+    y = m1.results[i]
     line.set_data(x, y)
     time_text.set_text('time = %.1f' % i )
     return line,time_text

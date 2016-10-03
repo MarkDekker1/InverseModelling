@@ -1,14 +1,14 @@
 
 # Sample Usage of Class_Tracer.py
 
-%matplotlib
+#%matplotlib
 from Class_Tracer import *
 
 #Constants
 xmax=100
 Dx=1
 xlen=np.int(xmax/Dx)
-tmax=1000
+tmax=100
 Dt=0.1
 tlen=np.int(tmax/Dt)
 xvec=np.zeros(100)
