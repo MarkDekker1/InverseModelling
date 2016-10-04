@@ -1,0 +1,345 @@
+\documentclass[]{article}
+
+
+\usepackage{url}
+\usepackage{siunitx}
+\DeclareSIUnit{\year}{yr}
+\DeclareSIUnit{\kyear}{kyr}
+\DeclareSIUnit{\day}{d}
+
+\usepackage{comment}
+\usepackage{graphicx}
+\usepackage{pgf}
+\usepackage{subcaption}
+\usepackage{todonotes}
+\usepackage{longtable}
+\usepackage{fontenc}
+%\usepackage{color}
+\usepackage{amssymb}
+\usepackage{textcomp}
+\usepackage{amsmath} 
+\usepackage{placeins}
+\usepackage[a4paper, left=3cm, right=3cm, top=2.5cm]{geometry}
+
+\usepackage{amsthm}
+\newtheorem{thm}{Hypothesis}
+\newcommand{\euler}{\mathit{e}}
+\newcommand{\degree}{\ensuremath{^\circ}}
+
+\newcommand{\trightarrow}{$\rightarrow \ $}
+\newcommand{\tra}{$\rightarrow \ $}
+\newcommand{\tram}{\rightarrow}
+
+
+% Code environment
+\usepackage{listings}
+\usepackage{color}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+  language=Python,
+  basicstyle=\ttfamily\footnotesize,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3
+}
+
+
+%opening
+\title{Simulation of Ocean, Atmosphere and Climate \\ Project: Inverse Modelling}
+\author{Matthias Aengenheyster and Mark Dekker \\ {\small\texttt{m.aengenheyster@students.uu.nl}}}
+\date{October 3, 2016}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\vspace{0.5cm}
+%\the\textwidth
+In this project we use a chemical transport model and its inverse to infer the strength and location of emission sources based on the observed concentration timeseries at a discrete number of stations.
+
+\section{Chemical transport model}
+We use the following one-dimensional chemical transport model for a tracer $C$ that is emitted by sources $E(x)$, advected by the wind $u_0$ and decays with rate constant $k$:
+\begin{align}
+\frac{\partial C}{\partial t} = E - u \frac{\partial C}{\partial x} - k C
+\end{align}
+We use periodic boundary conditions in a domain of length $L$. We obtain a characteristic advection timescale $T = L / u_0$ that is required for a signal to propagate once through the domain back to its initial position. For constant and space-independent sources $E(x) = const.$ this model can be solved analytically for the constant steady state solution $C = \frac{E}{k}$.
+\newline \newline
+We for now let all parameters to be time-independent and choose the following values:
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline  
+L (\si{\meter}) & $\Delta x (\si{\meter})$  & $T_{tot} (\si{\second})$  & $\Delta t (\si{\second})$  & $u_0 (\si{\meter\per\second})$ & $k (\si{\per\second})$  \\ 
+\hline 
+100 & 1 & 1000 & 0.1 & 5 & 0.1 \\
+\hline
+\end{tabular} 
+\caption{Model parameters}
+\label{tab:parameters}
+\end{center}
+\end{table}
+
+These choices result in the Courant number
+\begin{equation}
+\gamma = u_0 \frac{\Delta t}{\Delta x} = 0.5
+\end{equation}
+
+The source distribution $E(x)$ is given by $n$ point sources at a number of discrete locations
+\begin{align}
+E(x) = \sum_{i=0}^{n} E_i \delta(x-x_i)
+\end{align}
+where the $E_i$ are constant in time.
+
+\section{Forward Model}
+In order to numerically compute the solution of the model we discretize it using an Upwind scheme with Forward Euler in time.
+\begin{align}
+c_j^{n+1} &= c_j^n - \gamma (c_j^n - c_{j-1}^n) + E_j \Delta t - k \Delta t c_j^n \\
+&= b_{-1} c_{j-1}^n + b_0 c_j^n + b_{+1} c_{j+1}^n - k_j^n \Delta t c_j^n + E_j \Delta t\\
+b_{-1} &= \gamma \\
+b_0 &= 1 - \gamma \\
+b_{+1} &= 0
+\end{align}
+As we have chosen $k = const.$ we absorb it into $b_0 = 1 - \gamma - k \Delta t$, combine the advection and decay terms into the matrix $\mathbf{M}$ and write
+\begin{align}
+\vec{c}^{n+1} &= M \vec{c}^n + \vec{E} \Delta t \label{eq:forward} \\
+M &= 
+\begin{pmatrix}
+b_0 & 0 &   &  & b_{-1} \\
+b_{-1} & b_0 & \ddots &  &  \\
+0 & b_{-1} & b_0 & \ddots  \\
+  & \ddots & \ddots & \ddots & 0 \\
+0 &   & 0 & b_{-1} & b_0
+\end{pmatrix}
+\end{align}
+where the entry in the upper right corner implements the periodic boundary conditions and $b_{+1} = 0$ due to the discretization. $\vec{c}^n$ and $\vec{E}$ are vectors of length $nx$ (the number of spatial cells $nx = L/\Delta x$) and $\mathbf{M}$ is a $nx \times nx$ matrix. The so established model can be easily and efficiently integrated by repeated application of equation (\ref{eq:forward}). However we observe that due to the sources it is not possible to obtain the solution for timestep $n$ $\vec{c}^n$ directly from the initial step $\vec{c}^0$. It will prove useful to rewrite the model in a way that this becomes possible.
+\newline \newline
+We introduce the new state vector $\vec{x}$ and timestep matrix $\mathbf{F}$:
+\begin{align}
+\vec{x}^n &= 
+\begin{pmatrix}
+\vec{c}^n \label{eq: x vector}\\
+\vec{E}
+\end{pmatrix} \\
+\mathbf{F} &=
+\begin{pmatrix}
+\mathbf{M} & \mathbf{T} \\
+\mathbf{0} & \mathbf{I}
+\end{pmatrix} \\
+\mathbf{T} &= 
+\begin{pmatrix}
+\Delta t & & \\
+& \ddots & \\
+& & \Delta t
+\end{pmatrix} \\
+\mathbf{I} &=
+\begin{pmatrix}
+1 & & \\
+& \ddots & \\
+& & 1
+\end{pmatrix}
+\end{align}
+We see that we can now write the model (\ref{eq:forward}) as 
+\begin{align}
+\vec{x}^{n+1} = \mathbf{F} \vec{x}^n
+\end{align}
+and even more importantly we now have a easy relation between timesteps $n_1, n_2, n_2 > n_1$:
+\begin{align}
+\vec{x}^{n_2} = \mathbf{F}^{n_2 - n_1} \vec{x}^{n_1}
+\end{align}
+with the power of a matrix defined as usual.
+
+%\begin{pmatrix}
+%	b_0 - k_1 \Delta t & 0 &  \dots & 0 & b_{-1} \\
+%	b_{-1} & b_0 - k_2 \Delta t & 0 & \dots & 0 \\
+%	0 & b_{-1} & b_0 - k_3 \Delta t & 0  \\
+%	\dots & \ddots & \ddots & \ddots & \ddots \\
+%	0 & \dots & & b_{-1} & b_0 - k_J \Delta t
+%\end{pmatrix}
+
+We integrate the model described above using a self-defined python Class. We show an exemplary simulation in figure (\ref{fig:fig simulation})
+
+%\begin{figure}[!h]
+%	\begin{center}
+%		\input{../simulation_plot.pgf}
+%		%\includegraphics[width=\textwidth]{ex1_15_days.pdf}
+%		\caption{Concentration profile at various times. Source locations in red with $E_i = 1$}
+%		\label{fig:simulation_plot}
+%	\end{center}
+%\end{figure}
+
+
+\begin{figure}[h]
+	\begin{center}
+		\begin{subfigure}[b]{\textwidth}
+			\centering
+			\input{../simulation_plot_space.pgf}
+			%\includegraphics[width=\textwidth]{ex1_15_days.pdf}
+			\caption{Concentration profile at various times. Source locations in red with $E_i = 1$}
+			\label{fig:simulation_plot_space}
+		\end{subfigure}%
+		
+		\begin{subfigure}[b]{\textwidth}
+			\centering
+			\input{../simulation_plot_time.pgf}
+			%\includegraphics[width=\textwidth]{ex1_15_days.pdf}
+			\caption{Concentration as function of time at various locations.}
+			\label{fig:simulation_plot_time}
+		\end{subfigure}
+		\begin{subfigure}[b]{\textwidth}
+			\centering
+			%\input{../simulation_plot_spacetime.pgf}
+			\includegraphics[width=\textwidth]{../simulation_plot_spacetime.png}
+			\caption{Concentration as function of time and space}
+			\label{fig:simulation_plot_spacetime}
+		\end{subfigure}
+		\caption{Sample simulation. Top: $C(x)$ for various $t$. Bottom: $C(t)$ for various $x$}
+		\label{fig:fig simulation}
+	\end{center}
+\end{figure}
+
+\clearpage
+\section{Inverse Model}
+
+The purpose of the inverse model is now to reconstruct the sources from the timeseries of the observations, i.e. get the red dots (and ideally also their strength) in figure (\ref{fig:simulation_plot_space}) from the data in figure (\ref{fig:simulation_plot_time}). This is essentially an exercise in linear algebra. We define a cost function $J$ that takes into account the deviation of the prediction from the actual result and the deviation of the found parameters from their a priori guessed values. This is written as 
+\begin{align}
+J(\vec{x}) = (\vec{x} - \vec{x_a})^T \mathbf{S}_a^{-1} (\vec{x} - \vec{x}_a) + (\vec{y} - \mathbf{K}\vec{x})^T \mathbf{S}_\epsilon^{-1} (\vec{y} - \mathbf{K} \vec{x})
+\end{align}
+The scalar function $J$ gives the cost of the parameter set $\vec{x}$ depending on the prior guess $\vec{x}_a$, the observed data $\vec{y}$, the model matrix $\mathbf{K}$ relating $\vec{x},\vec{y}$ as
+\begin{align}
+\vec{y} = \mathbf{K} \vec{x} + \vec{\epsilon}
+\label{eq:model K}
+\end{align}
+with model uncertainty term $\vec{\epsilon}$, and the error covariance matrices for the observations $\mathbf{S}_\epsilon$ and the prior guess $\mathbf{S}_a$. $\vec{x}$ is found by minimizing $J$ with respect to $\vec{x}$, so
+\begin{align}
+\frac{\partial J}{\partial \vec{x}} = 2 \mathbf{S}_a^{-1} (\vec{x} - \vec{x}_a) + 2 \mathbf{K}^T \mathbf{S}_\epsilon^{-1} (\mathbf{K} \vec{x} - \vec{y}) = 0
+\end{align}
+With the matrix $\mathbf{G}$ as 
+\begin{align}
+\mathbf{G} = (\mathbf{K}^T \mathbf{S}_\epsilon^{-1}\mathbf{K} + \mathbf{S}_a^{-1})^{-1} \mathbf{K}^T \mathbf{S}_\epsilon^{-1}
+\end{align}
+the solution is found as
+\begin{align}
+\vec{\hat{x}} = \vec{x}_a + \mathbf{G}(\vec{y} - \mathbf{K} \vec{x}_a)
+\end{align}
+So it is obvious that the challenge now lies primarily in finding the particular matrix $\mathbf{K}$ that relates the source strengths $x = \vec{E}$ to an observed time series $y = x_{i}(t)$.
+\begin{align}
+x_{i,t} = \mathbf{K} \vec{x}^0
+\end{align}
+It is clear that $\mathbf{K}$ will be different for different spatial points $i$ in order to get the correct timeseries from the (invariant) vector $\vec{x}^0$.
+To define $\mathbf{K}$ we use the matrix $\mathbf{F}$ that we defined previously. We can clearly write
+\begin{align}
+\vec{x}^{n} = \mathbf{F}^n \vec{x}^0
+\end{align}
+so the $n$-th power of the matrix $\mathbf{F}$ relates timestep $n$ to the initial vector. Obviously the $i$-th element in the vector $\vec{x}^n$ is related to the $i$-th row of the matrix $\mathbf{F}^n$. We now define the matrix $K_{tj}(i)$ as
+\begin{align}
+%K_t &= \left(\mathbf{F}^{t}\right)_i \\
+K_{tj}(i) &= \left(\mathbf{F}^{t}\right)_{ij} \\
+x_{i,t} &= \sum_{j = 1}^{J} K_{tj}(i) x_j^0
+\end{align}
+So, in order to obtain the timeseries for location $x_i$ at grid point $i$ for every timestep $t$ we compute the $t$-th row of matrix $\mathbf{K}$ by taking the $i$-th row out of the $t$-th power of matrix $\mathbf{F}$. So $\mathbf{K}$ is a matrix with $N$ (number of timesteps) rows and $2 J$ columns for $\vec{x}$ as defined in (\ref{eq: x vector}). This is a very large matrix. In the light of the operations to be performed to obtain $\vec{\hat{x}}$ we aim to reduce its size. We note that the second half of the vector $\vec{x}$ does not change as the sources are time-independent and the first half of the vector $\vec{x}^0$ is zero anyway as we start from zero concentrations\footnote{We may also in principle start with some arbitrary initial profile, but the solution will quickly converge to a steady state and the memory will be lost. The initial profile enters into the solution of $\vec{c}^n$ as $\mathbf{M}^n \vec{c}^0$. As $\max(\mathbf{M})<1$ for $n$ large enough this term will be insignificant relative to the $\vec{E}$-terms.}. Therefore we define the matrix $\hat{\mathbf{K}}$ as the \textit{right} half of matrix $\mathbf{K}$ with size $N \times J$. We therefore have
+\begin{align}
+c_{i,t} = \sum_{j = 1}^{J} \hat{K}_{tj}(i) E_j
+\end{align}
+or, if we define the vector $\vec{c}_i$ as having $N$ elements for each timestep
+\begin{align}
+\vec{c}_i = \mathbf{\hat{K}}(i) \vec{E}
+\end{align}
+which gives us the matrix required from equation (\ref{eq:model K}).
+\newline \newline
+In order to compute $\mathbf{G}$ and $\vec{\hat{x}}$ we still need to define the error matrices $\mathbf{S_\epsilon}$ of size $N \times N$ and $\mathbf{S}_a$ of size $J \times J$. We assume uncorrelated errors so both matrices are diagonal and we have no reason to assume variations in the observation error in time or the prior error in space. Hence we let
+\begin{align}
+\mathbf{S_\epsilon} &= \sigma_\epsilon \text{diag}(N) \\
+\mathbf{S_a} &= \sigma_a \text{diag}(J)
+\end{align}
+where $\text{diag}(n)$ is a diagonal identity matrix of size $n\times n$. With these ingredients comoputing $\vec{\hat{x}}$ is simply a computational exercise that can be easily solved using python's scipy matrix algebra.
+\newline \newline
+However we have one more problem to solve: In the procedure we have laid out up to here we compute $\vec{\hat{x}}$, that is, the sources $\vec{E}$, only using one timeseries of concentrations $\vec{c}_i$. This is clearly suboptimal as stations at different locations will be more or less sensitive to particular emission sources (most sensitive to the ones just upstream and least sensitive to the ones just downstream). Therefore we want to extend our method to incorporate multiple observational timeseries and compute the optimal $\vec{E}$ using all available information. To tackle this problem we construct a new state vector $\vec{b}$ using $L$ timeseries at different points and the corresponding forward model $\mathbf{\tilde{K}}$:
+\begin{align}
+\vec{b} = 
+\begin{pmatrix}
+c_{1,0} \\
+\vdots \\
+c_{1,N} \\
+c_{2,0} \\
+\vdots \\
+c_{2,N} \\
+\vdots \\
+c_{L,N}
+\end{pmatrix}
+\quad, \quad
+\mathbf{\tilde{K}} = 
+\begin{pmatrix}
+\mathbf{\hat{K}}(1) \\
+\mathbf{\hat{K}}(2) \\
+\vdots \\
+\mathbf{\hat{K}}(L)
+\end{pmatrix}
+\end{align}
+where $\vec{b}$ now has length $L\cdot N$ and $\mathbf{\tilde{K}}$ has dimension $L\cdot N \times J$. The indices $1,2,\cdots,L$ label arbitrarily sorted distinct timeseries and their matrices $\mathbf{\hat{K}}$. We can therefore write the extended forward problem as
+\begin{align}
+\vec{b} = \mathbf{\tilde{K}} \vec{E}
+\end{align}
+With this we can now use the same machinery introduced at the beginning of this section to compute $\vec{\hat{x}}$, i.e. the best estimate for $\vec{E}$, based on the observations.
+\newline \newline
+In figure (\ref{fig:fig simulation inverse}) we show the recovered sources for the simulation shown in figure (\ref{fig:fig simulation}) where we have chosen $\sigma_\epsilon = \SI{2e-8}{}, \sigma_a = 0.01$ starting with an initial guess $x_a = \vec{0}$ and using the timeseries from the indices 30,40,70,80 (\ref{fig:simulation_plot inverse1}) or 10,30,50,80 (\ref{fig:simulation_plot inverse2}) (the timeseries for the latter case where shown in figure \ref{fig:simulation_plot_time}). We can see that the source locations are recovered in both cases. The quality of the reconstruction depends strongly on the selected sites. In the second case the agreement is very good, likely because two of the stations corresponded to emission sites.
+
+%\begin{figure}[!h]
+%	\begin{center}
+%		%\input{../simulation_plot_inverse.pgf} %[width=\textwidth]
+%		\includegraphics{../simulation_plot_inverse.pdf}
+%		\caption{Best estimate for sources (green) and actual sources (blue). Measurement station locations in red.}
+%		\label{fig:simulation_plot inverse}
+%	\end{center}
+%\end{figure}
+
+\begin{figure}[h]
+	\begin{center}
+		\begin{subfigure}[b]{\textwidth}
+			\centering
+			\includegraphics{../simulation_plot_inverse.pdf}
+			\caption{}
+			\label{fig:simulation_plot inverse1}
+		\end{subfigure}%
+		
+		\begin{subfigure}[b]{\textwidth}
+			\centering
+			\includegraphics{../simulation_plot_inverse2.pdf}
+			\caption{}
+			\label{fig:simulation_plot inverse2}
+		\end{subfigure}
+		\caption{Best estimate for sources (green) and actual sources (blue) for two different sets of four measurement stations (red)}
+		\label{fig:fig simulation inverse}
+	\end{center}
+\end{figure}
+
+
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
