@@ -52,7 +52,9 @@ m1.integrateModel()
 # Choose which observation stations (their indices)
 # ------------------------------------------------------
 
-indices = [10,30,50,80]
+#indices = [10,30,50,80] # Example 1
+#indices = [20,40,60,80] # Example 2
+indices = [30,40,80,95] # Example 3
 numindices = len(indices)
 Khatlarge = np.zeros((numindices*nt,nx))
 yinlarge = np.zeros(numindices*nt)
@@ -83,7 +85,7 @@ for numid in range(numindices):
     
     K = np.zeros((nt,2*nx))
     for ni in range(nt):
-        K[ni] = matrix_power(F,ni)[i]
+        K[ni] = matrix_power(M,ni)[i]
 
     Khat = K[:,100:]
     
@@ -103,8 +105,8 @@ print('Max deviation y_t = %.3e' % abs(ytlarge-yinlarge).max())
 
 xa = np.zeros(100)  # all zeros, no prior knowledge
 #xa = m1.P['E']     # assign sources, then guess is perfect
-sigmaxa = 0.01      # prior
-sigmaxe = 2e-8      # observations
+sigmaxa = 0.001      # prior (0.001)
+sigmaxe = 2e-8      # observations (2e-8)
 Sa = np.diag(sigmaxa*np.ones(nx))
 Se = np.diag(sigmaxe*np.ones(nt*numindices))
 print('Computing best estimate')
@@ -128,19 +130,28 @@ x = xa + np.matmul(G,yinlarge-np.matmul(Khatlarge,xa))
 Shat = inv(np.matmul(np.matmul(Khatlarge.transpose(),inv(Se)),Khatlarge) + inv(Sa))
 
 # ------------------------------------------------------
+# Inverse modelling correctness score
+# ------------------------------------------------------
+
+RMSE=np.mean(np.sqrt((x-x0)**2))
+print(RMSE)
+
+# ------------------------------------------------------
 # Plotting to compare
 # ------------------------------------------------------
 
-fig,ax = plt.subplots(1)
-#fig,ax = newfig(0.8)
-ax.plot(m1.x,x0,label='actual')
-ax.plot(m1.x,x,label='determined')
-ax.plot(indices,np.zeros(len(indices)),'ro',markersize=10)
-ax.set_ylim(0,0.5)
-ax.legend()
-ax.set_xlabel('x')
-ax.set_ylabel('E')
+matplotlib.style.use('ggplot')
+fig=plt.figure(num=None, figsize=(5,3),dpi=150, facecolor='w', edgecolor='k') # little: 5,3, large: 9,3
+plt.scatter(indices,np.zeros(len(indices))+0.03,s=100,c='orange',alpha=1,zorder=15,edgecolor='k',linewidth=2,label='Measuring Stations')
+plt.plot(m1.x,x,'mediumvioletred',label='Determined',linewidth=4)
+plt.plot(m1.x,x0,'dimgray',label='Actual',linewidth=2)
+plt.xlabel('Distance x',fontsize=15)
+plt.ylabel('Emission strength',fontsize=15)
+plt.xlim([0,100])
+plt.ylim([0,1])
+plt.tick_params(axis='both', which='major', labelsize=15)
+plt.legend(loc='best',fontsize=9)
 fig.tight_layout()
-fig.show()
+plt.show()
 #savefig(fig,'simulation_plot_inverse')
 #fig.savefig('simulation_plot_inverse2.pdf')
