@@ -2,7 +2,6 @@
 # Constants
 # --------------------------------------------------
 
-import numdifftools as nd
 xmax=100
 Dx=1
 xlen=np.int(xmax/Dx)
@@ -127,7 +126,6 @@ J3=CostJ(E,E_p,S_p,S_i,yp_3,yi_3)
 J4=CostJ(E,E_p,S_p,S_i,yp_4,yi_4)
 
 TotalJ=J1+J2+J3+J4
-print TotalJ
 #%%
 def PDF(S_p0,E0,E_p0):
     return np.exp(-0.5*np.dot(np.dot(np.transpose(E0-E_p0),np.linalg.inv(S_p0)),(E0-E_p0)))
@@ -168,6 +166,21 @@ for i in range(0,200):
         x[i]=E[i]
     else:
         x[i]=C0[i-100]
+
+#%%
+x_0=50
+Matrix=np.zeros(shape=(1000,200))
+for i in range(0,1000):
+    for j in range(0,200):
+        if j<100:
+            Matrix[i,j]=A[x_0,j]**(i+1)
+        else:
+            summation=[]
+            for k in range(0,i+1):
+                summation.append(A[x_0,j-100]**k)
+            Matrix[i,j]=np.sum(summation)
+
+
 
 #%%
 y=np.dot(K,x)
