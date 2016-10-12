@@ -9,12 +9,35 @@ import sys,os
 import time as T
 
 import numpy as np
+import scipy.sparse as sp
 import matplotlib.pyplot as plt
 
-import matplotlib
-matplotlib.style.use('ggplot')
-import csv
-import matplotlib.cm as cm
+#import matplotlib
+#matplotlib.style.use('ggplot')
+#import matplotlib.cm as cm
+
+# Graphics
+def figsize(scale):
+    fig_width_pt = 426.79135 #pt 278.83713 #469.755    # Get this from LaTeX using \the\textwidth
+    inches_per_pt = 1.0/72.27                       # Convert pt to inch
+    golden_mean = (np.sqrt(5.0)-1.0)/2.0            # Aesthetic ratio (you could change this)
+    fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
+    fig_height = fig_width*golden_mean              # height in inches
+    fig_size = [fig_width,fig_height]
+    return fig_size
+
+# I make my own newfig and savefig functions
+def newfig(width,nr=1,nc=1):
+    #plt.clf()
+    fig,ax = plt.subplots(nrows=nr,ncols=nc,figsize=figsize(width),dpi=300)
+    #fig = plt.figure(figsize=figsize(width))
+    #fig.dpi = 300
+    #ax = fig.add_subplot(111)
+    return fig, ax
+
+def savefig(fig,filename):
+    fig.savefig('{}.pgf'.format(filename))
+    fig.savefig('{}.pdf'.format(filename))
 
 class TracerModel(object):
 
@@ -83,11 +106,16 @@ class TracerModel(object):
         '''
 
         # initialize arrays
-        self.x = np.arange(0,self.P['xmax'],self.P['dx'])
-        self.time = np.arange(0,self.P['tmax'],self.P['dt'])
+        self.P['nx'] = np.int(self.P['xmax']/self.P['dx'])
+        self.P['nt'] = np.int(self.P['tmax']/self.P['dt'])
+        self.x = self.P['dx'] * np.arange(self.P['nx'])
+        self.time = self.P['dt'] * np.arange(self.P['nt'])
+
+        #self.x = np.arange(0,self.P['xmax'],self.P['dx'])
+        #self.time = np.arange(0,self.P['tmax'],self.P['dt'])
         # compute derived parameters
-        self.P['nx'] = self.x.shape[0]
-        self.P['nt'] = self.time.shape[0]
+        #self.P['nx'] = self.x.shape[0]
+        #self.P['nt'] = self.time.shape[0]
         self.P['gamma'] = self.P['u0'] * self.P['dt'] / self.P['dx']
         # initialize results array
         self.results = np.zeros((self.P['nt'],self.P['nx']))
@@ -185,13 +213,16 @@ class TracerModel(object):
         # METHOD SELECTION LOOP
         # =====================================
         if self.method == 'Upwind':
-            bm1 = 0.5 * self.P['gamma']
-            b0 = 1 - 0.5 * self.P['gamma']
+            #bm1 = 0.5 * self.P['gamma']
+            #b0 = 1 - 0.5 * self.P['gamma']
+            bm1 = self.P['gamma']
+            b0 = 1 - self.P['gamma']
             bp1 = 0
             Mtot = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
 
             # assign matrices to properties
-            self.Mtot = Mtot
+            #self.Mtot = Mtot
+            self.Mtot = sp.csc_matrix(Mtot)
             self.M2 = 0
 
             # MODEL RUN
@@ -200,7 +231,8 @@ class TracerModel(object):
             print('Starting model run with method %s' % self.method)
 
             for ti in range(0,self.P['nt']-1):
-                self.results[ti+1,:] = np.matmul(Mtot,self.results[ti,:]) + self.P['dt'] * self.P['E']
+                #self.results[ti+1,:] = np.matmul(Mtot,self.results[ti,:]) + self.P['dt'] * self.P['E']
+                self.results[ti+1,:] = Mtot.dot(self.results[ti,:].transpose()) + self.P['dt'] * self.P['E']
 
                 if np.mod(ti,np.int(self.P['nt']/10))==0:
                     print('Progress is at ', ti/self.P['nt']*100., 'percent')
