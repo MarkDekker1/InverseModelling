@@ -12,6 +12,7 @@ import numpy as np
 import scipy.sparse as sp
 import matplotlib.pyplot as plt
 
+<<<<<<< HEAD
 #import matplotlib
 #matplotlib.style.use('ggplot')
 #import matplotlib.cm as cm
@@ -38,6 +39,11 @@ def newfig(width,nr=1,nc=1):
 def savefig(fig,filename):
     fig.savefig('{}.pgf'.format(filename))
     fig.savefig('{}.pdf'.format(filename))
+=======
+import matplotlib
+import csv
+import matplotlib.cm as cm
+>>>>>>> ce175696ec484f1c006ce30d80b899ead101d6be
 
 class TracerModel(object):
 
