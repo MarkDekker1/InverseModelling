@@ -64,7 +64,7 @@ class TracerModel(object):
                     print(key)
 
         self.initialize()
-        print('Model initialized')
+        #print('Model initialized')
 
     def initialize(self):
         '''
@@ -102,7 +102,7 @@ class TracerModel(object):
         #    sys.exit('Initial value has wrong dimension: %s instead of %s' % (str(self.initialvalue.shape),str(self.results[0,:])))
         #else:
         #    self.results[0,:] = self.initialvalue
-        print('Done with initialize')
+        #print('Done with initialize')
 
 
     def updateParameters(self,newParams):
@@ -195,18 +195,18 @@ class TracerModel(object):
 
             # MODEL RUN
             start_time = T.time()
-            print('================================================')
-            print('Starting model run with method %s' % self.method)
+            #print('================================================')
+            #print('Starting model run with method %s' % self.method)
 
             for ti in range(0,self.P['nt']-1):
                 self.results[ti+1,:] = np.matmul(Mtot,self.results[ti,:]) + self.P['dt'] * self.P['E']
 
-                if np.mod(ti,np.int(self.P['nt']/10))==0:
-                    print('Progress is at ', ti/self.P['nt']*100., 'percent')
+                #if np.mod(ti,np.int(self.P['nt']/10))==0:
+                    #print('Progress is at ', ti/self.P['nt']*100., 'percent')
 
-            print('Total time required: %.2f seconds' % (T.time() - start_time))
-            print('Model run finished')
-            print('================================================')
+            #print('Total time required: %.2f seconds' % (T.time() - start_time))
+            #print('Model run finished')
+            #print('================================================')
             # END OF MODEL RUN
 
         elif self.method == 'LaxWendroff':
