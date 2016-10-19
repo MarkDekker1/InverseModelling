@@ -4,6 +4,8 @@
 
 from Class_Tracer import *
 from numpy.linalg import matrix_power,inv
+import scipy.linalg as la
+
 
 # ------------------------------------------------------
 # Constants
@@ -55,6 +57,16 @@ m1.integrateModel()
 i = 5#30#70
 yin = m1.results[:,i]
 
+<<<<<<< HEAD
+# construct large matrix, relates x_0 = [c_i,E_i] = x_n = [c_n,E_i]
+F = np.zeros((200,200))                       
+F[:100,:100] = m1.Mtot                         
+F[:100,100:] = np.diag(np.ones(100)*m1.P['dt'])
+F[100:,100:] = np.diag(np.ones(100))           
+
+# construct matrix relating initial vector x_0 to timeseries yin
+# x_{i,ti} = K_i x^0
+=======
 # ------------------------------------------------------
 # Construct matrix F (relates x_0 = [c_i,E_i] to x_n = [c_n,E_i])
 # ------------------------------------------------------
@@ -68,10 +80,26 @@ M[100:,100:] = np.diag(np.ones(100))
 # Construct matrix K (relates x_0 to time series yin)
 # ------------------------------------------------------
 
+>>>>>>> ce175696ec484f1c006ce30d80b899ead101d6be
 K = np.zeros((nt,2*nx))
 for ni in range(nt):
-    K[ni] = matrix_power(M,ni)[i]
+    K[ni] = matrix_power(F,ni)[i]
 
+# Take matrix Khat that takes only E as input
+# x_{i,ti} = Khat_i E
+Khat = K[:,100:]
+
+<<<<<<< HEAD
+# Actual initial vector
+#x0 = np.zeros(2*nx)
+#x0[100:] = m1.P['E']
+
+x0 = m1.P['E']
+
+# Test if matrix F works
+# compute final profile x_N
+xnt = np.matmul(matrix_power(F,m1.P['nt']),x0)
+=======
 # ------------------------------------------------------
 # Gain initial state vector (length 2*nx)
 # ------------------------------------------------------
@@ -84,6 +112,7 @@ x0[100:] = m1.P['E']
 # ------------------------------------------------------
 
 xnt = np.matmul(matrix_power(M,m1.P['nt']),x0)
+>>>>>>> ce175696ec484f1c006ce30d80b899ead101d6be
 print('Max deviation x_N = %.3e' % abs(xnt[:nx]-m1.results[-1,:]).max())
 
 # ------------------------------------------------------
@@ -93,6 +122,26 @@ print('Max deviation x_N = %.3e' % abs(xnt[:nx]-m1.results[-1,:]).max())
 yt = np.matmul(K,x0)
 print('Max deviation y_t = %.3e' % abs(yt-yin).max())
 
+<<<<<<< HEAD
+# Test if matrix Khat works
+# timeseries computed using Khat, E
+yt2 = np.matmul(Khat,m1.P['E'])
+print('Max deviation y_t = %.3e' % abs(yt-yin).max())
+
+# Prior guess for vector x_0
+# HERE FOR USE WITH K
+#xa = np.zeros(200) # all zeros, no prior knowledge
+# if desired, provide perfect prior guess
+#xa[100:] = m1.P['E'] # assign sources, then guess is perfect
+
+# HERE FOR USE WITH Khat
+xa = np.zeros(100) # all zeros, no prior knowledge
+#xa = m1.P['E'] # assign sources, then guess is perfect
+
+# error estimates 
+sigmaxa = 0.001#10        #e-9 #20#0.00001 # error in the prior
+sigmaxe = 2e-8      #0.00000000001 # error in the observations
+=======
 # ------------------------------------------------------
 # Create prior guess and error estimates
 # ------------------------------------------------------
@@ -102,10 +151,22 @@ xa = np.zeros(200)
 
 sigmaxa = 0.001     # in prior
 sigmaxe = 2e-8      # in observations
+>>>>>>> ce175696ec484f1c006ce30d80b899ead101d6be
 
-Sa = np.diag(sigmaxa*np.ones(2*nx))
+#Sa = np.diag(sigmaxa*np.ones(2*nx))
+Sa = np.diag(sigmaxa*np.ones(nx))
 Se = np.diag(sigmaxe*np.ones(nt))
 
+<<<<<<< HEAD
+# construct G matrix (Jacob, eq. 5.9)
+#G = np.matmul(np.matmul(inv(np.matmul(np.matmul(K.transpose(),inv(Se)),K)+inv(Sa)),K.transpose()),inv(Se))
+G = np.matmul(np.matmul(inv(np.matmul(np.matmul(Khat.transpose(),inv(Se)),Khat)+inv(Sa)),Khat.transpose()),inv(Se))
+# compute initial vector based on yin, K, xa (Jacob, eq. 5.7)
+x = xa + np.matmul(G,yin-np.matmul(Khat,xa))
+
+# Error covariance of initial vector (Jacob, eq. 5.10)
+Shat = inv(np.matmul(np.matmul(Khat.transpose(),inv(Se)),Khat) + inv(Sa))
+=======
 # ------------------------------------------------------
 # Construct matrix G (Jacob, Eqn. 5.9)
 # ------------------------------------------------------
@@ -123,6 +184,7 @@ x = xa + np.matmul(G,yin-np.matmul(K,xa))
 # ------------------------------------------------------
 
 Shat = inv(np.matmul(np.matmul(K.transpose(),inv(Se)),K) + inv(Sa))
+>>>>>>> ce175696ec484f1c006ce30d80b899ead101d6be
 
 # ------------------------------------------------------
 # Plotting to compare
@@ -133,4 +195,71 @@ ax.plot(x0,label='actual')
 ax.plot(x,label='determined')
 ax.set_ylim(0,0.5)
 ax.legend()
-ax.set_xlabel('left half: c0, right half: E')
+ax.set_xlabel('x')
+ax.set_ylabel('E')
+
+
+# =====================================================
+# Inverse step using multiple timeseries
+
+# Construct Matrices 
+indices = [10,30,50,80]
+numindices = len(indices)
+
+Khatlarge = np.zeros((numindices*nt,nx))
+yinlarge = np.zeros(numindices*nt)
+
+x0 = m1.P['E'] # source vector
+
+for numid in range(numindices):
+    print(numid)
+    i = indices[numid]
+    yinlarge[numid*nt:(numid+1)*nt] = m1.results[:,i]
+    
+    K = np.zeros((nt,2*nx))
+    for ni in range(nt):
+        K[ni] = matrix_power(F,ni)[i]
+
+    Khat = K[:,100:]
+    
+    Khatlarge[numid*nt:(numid+1)*nt,:] = Khat
+   
+# Test if matrix Khatlarge works
+# timeseries computed using Khat, E
+ytlarge = np.matmul(Khatlarge,x0)
+print('Max deviation y_t = %.3e' % abs(ytlarge-yinlarge).max())
+    
+# Compute best estimate
+
+xa = np.zeros(100) # all zeros, no prior knowledge
+#xa = m1.P['E'] # assign sources, then guess is perfect
+
+# error estimates 
+sigmaxa = 0.01  # error in the prior
+sigmaxe = 2e-8  # error in the observations
+
+#Sa = np.diag(sigmaxa*np.ones(2*nx))
+Sa = np.diag(sigmaxa*np.ones(nx))
+Se = np.diag(sigmaxe*np.ones(nt*numindices))
+
+# construct G matrix (Jacob, eq. 5.9)
+G = np.matmul(np.matmul(inv(np.matmul(np.matmul(Khatlarge.transpose(),inv(Se)),Khatlarge)+inv(Sa)),Khatlarge.transpose()),inv(Se))
+# compute initial vector based on yin, K, xa (Jacob, eq. 5.7)
+x = xa + np.matmul(G,yinlarge-np.matmul(Khatlarge,xa))
+
+# Error covariance of initial vector (Jacob, eq. 5.10)
+Shat = inv(np.matmul(np.matmul(Khatlarge.transpose(),inv(Se)),Khatlarge) + inv(Sa))
+
+# Compare with actual initial vector
+fig,ax = plt.subplots(1)
+#fig,ax = newfig(0.8)
+ax.plot(m1.x,x0,label='actual')
+ax.plot(m1.x,x,label='determined')
+ax.plot([10,30,50,80],np.zeros(4),'ro',markersize=10)
+ax.set_ylim(0,0.5)
+ax.legend()
+ax.set_xlabel('x')
+ax.set_ylabel('E')
+fig.tight_layout()
+#savefig(fig,'simulation_plot_inverse')
+#fig.savefig('simulation_plot_inverse2.pdf')

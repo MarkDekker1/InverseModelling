@@ -14,6 +14,11 @@ tlen=np.int(tmax/Dt)
 xvec=np.zeros(100)
 k=0.1
 u0 = 5
+<<<<<<< HEAD
+=======
+nx=xmax/Dx
+nt=tmax/Dt
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 
 # ------------------------------------------------------
 # Define truth
@@ -108,13 +113,21 @@ for times in timevec[::-1]:
     E_adjoined = E_adjoined + C_adjoined*Dt
     #C_adjoined[100:] = C_adjoined[100:] + C_adjoined[:100]
     #E_adjoined = E_adjoined + C_adjoined
+<<<<<<< HEAD
 print('Guess dJ/dC:',2*C_adjoined, 2*E_adjoined)
+=======
+#print('Guess dJ/dC:',2*C_adjoined, 2*E_adjoined)
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 
 # ------------------------------------------------------
 # Test derivative for E[TestElement]
 # ------------------------------------------------------
 
+<<<<<<< HEAD
 alpha=0.001
+=======
+alpha=0.0001
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 TestElement=0
 E_test=E_guess
 E_test[TestElement]=E_guess[TestElement]+alpha
@@ -157,7 +170,11 @@ Parameter_initial = {
 m4 = TracerModel(Parameter_initial,method='Upwind',initialvalue=0)
 m4.integrateModel()
 Obs_new=m4.results
+<<<<<<< HEAD
 Cost_new = sum((array(Obs_new)-array(Obs_true))**2)
+=======
+Cost_new = sum((Obs_new-Obs_true)**2)
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 print('Old cost function',Cost_initial)
 print('New cost function:',Cost_new)
 
@@ -192,6 +209,122 @@ plt.tick_params(axis='both', which='major', labelsize=15)
 plt.legend(loc='best',fontsize=12)
 fig.tight_layout()
 plt.show()
+<<<<<<< HEAD
+=======
+#%%
+E_guess=np.zeros(100)
+E0=1
+for j in range(0,xlen):
+    x=j*Dx
+    xvec[j]=x
+    if x==2 or x==12 or x==80:
+        E_guess[j]=E0
+        
+Parameter_initial = {
+    'xmax':xmax,
+    'dx':Dx,
+    'tmax':tmax,
+    'dt':Dt,
+    'u0':u0,
+    'k':k,
+    'E':E_guess
+    }
+
+m2 = TracerModel(Parameter_initial,method='Upwind',initialvalue=0)
+m2.integrateModel()
+Obs_guess=m2.results
+forcing = array(Obs_guess)-array(Obs_true)  # (Hx-y)
+
+timevec=range(0,int(tmax/Dt))
+C_adjoined = zeros(100)
+E_adjoined = zeros(100)
+for times in timevec[::-1]:
+    C_adjoined = C_adjoined + forcing[times]
+    C_adjoined = matmul(np.transpose(Transport),C_adjoined)
+    E_adjoined = E_adjoined + C_adjoined*Dt
+
+#%%
+sigmaxa = 0.01      # prior (0.001)
+sigmaxe = 0.01      # observations (2e-8)
+Sa = np.diag(sigmaxa*np.ones(nx))
+Se = np.diag(sigmaxe*np.ones(nt))
+Sai = np.diag((1/sigmaxa)*np.ones(nx))
+Sei = np.diag((1/sigmaxa)*np.ones(nt))
+#Sai= np.linalg.inv(Sa)
+#Sei= np.linalg.inv(Se)
+
+#%%
+# From calculation, it is expected that the local minimum occurs at x=9/4
+E_guess=np.zeros(100)
+E0=1
+for j in range(0,xlen):
+    x=j*Dx
+    xvec[j]=x
+    if x==2 or x==12 or x==80:
+        E_guess[j]=E0
+E_guess=np.zeros(100)
+        
+matplotlib.style.use('ggplot')
+fig=plt.figure(num=None, figsize=(9,5),dpi=150, facecolor='w', edgecolor='k') # little: 5,3, large: 9,3
+plt.plot(E_true,'k',label='True',linewidth=3)
+plt.plot(E_guess,label='First guess',linewidth=3)
+
+x_old = np.zeros(100) # The value does not matter as long as abs(x_new - x_old) > precision
+x_new = E_guess # The algorithm starts at x=6
+x_prior = E_guess
+print(max(abs(x_new - x_old)))
+
+gamma = 0.00000001 # step size
+precision = 0.000000001
+
+
+
+def df(a,b):
+    Parameter_initial = {
+        'xmax':xmax,
+        'dx':Dx,
+        'tmax':tmax,
+        'dt':Dt,
+        'u0':u0,
+        'k':k,
+        'E':a
+        }
+    
+    m2 = TracerModel(Parameter_initial,method='Upwind',initialvalue=0)
+    m2.integrateModel()
+    Obs_guess=m2.results
+    forcing = matmul(Sei,array(Obs_guess)-array(Obs_true))  # (Hx-y)
+    
+    timevec=range(0,int(tmax/Dt))
+    C_adjoined = zeros(100)
+    E_adjoined = zeros(100)
+    for times in timevec[::-1]:
+        C_adjoined = C_adjoined + forcing[times]
+        C_adjoined = matmul(np.transpose(Transport),C_adjoined)
+        E_adjoined = E_adjoined + C_adjoined*Dt
+    
+    derivative = 2*matmul(Sai,a-b)+ 2*E_adjoined    
+    
+    return derivative
+
+#while max(abs(x_new - x_old)) > precision:
+for j in range(0,50):
+    x_old = x_new
+    x_new = x_new - gamma * df(x_old,x_prior)
+    print(mean(abs(x_new - x_old)))
+    
+#
+plt.plot(x_new,label='New',linewidth=3)
+plt.xlabel('Distance x',fontsize=15)
+plt.ylabel('Emission strength',fontsize=15)
+plt.xlim([0,100])
+plt.ylim([0,2])
+plt.tick_params(axis='both', which='major', labelsize=15)
+plt.legend(loc='best',fontsize=12)
+fig.tight_layout()
+plt.show()
+#print("The local minimum occurs at ", +x_new)
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 
 #%% 
 # ------------------------------------------------------
@@ -209,6 +342,10 @@ for j in range(0,xlen):
     xvec[j]=x
     if x==2 or x==12 or x==80:
         E_guess[j]=E0
+<<<<<<< HEAD
+=======
+E_guess=np.zeros(100)
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 
 matplotlib.style.use('ggplot')
 fig=plt.figure(num=None, figsize=(7,7),dpi=150, facecolor='w', edgecolor='k') # little: 5,3, large: 9,3
@@ -231,7 +368,11 @@ for q in range(1,50):
         C_adjoined = matmul(np.transpose(Transport),C_adjoined)
         E_adjoined = E_adjoined + C_adjoined*Dt
     Derivative=E_adjoined
+<<<<<<< HEAD
     DE=zeros(100)-0.00001/q
+=======
+    DE=zeros(100)-0.00001
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
     E_new=E_guess+DE*Derivative
     print(q)
     
