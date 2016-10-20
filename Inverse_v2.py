@@ -14,12 +14,13 @@ tmax    =   10* xmax / u0
 k       =   0.1 # 1.93e-7 # based on 60 day lifetime of CO
 gamma   =   0.9
 Dx      =   xmax / 100
+Dx      =   1
 Dt      =   gamma * Dx / u0 #0.1
 E0      =   1 # source strength
-sources = [10,50,60] # source locations as percentage of xmax
+sources = [1,10,50] # source locations as percentage of xmax
 
 # INVERSE PARAMETERS
-stations    = [20,70,90] # measurement stations as percentage of xmax
+stations    = [20,40,60,80] # measurement stations as percentage of xmax
 # error estimates 
 sigmaxa     = 0.001 #10        #e-9 #20#0.00001 # error in the prior
 sigmaxe     = 2e-5  #0.0000001 #    #0.00000000001 # error in the observations
@@ -65,6 +66,7 @@ m1.integrateModel()
 # INVERSE
 # ======================================
 
+start_time = T.time()
 inverseParams = {
 	'stations':stations,
 	'sigmaxa':sigmaxa,
@@ -78,6 +80,7 @@ m1.inverseKmatrix()
 m1.inverseGmatrix()
 
 m1.inverseSolution()
+print('Total time required: %.2f seconds' % (T.time() - start_time))
 
 
 fig,ax = plt.subplots(1)

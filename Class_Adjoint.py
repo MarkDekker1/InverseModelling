@@ -4,9 +4,9 @@ from scipy.optimize import *
 import matplotlib.pyplot as plt
 import matplotlib
 
-class AdjoinedModel(object):
+class AdjointModel(object):
     def __init__(self,parameters,method='Upwind',initialvalue=None):
-        self.P = dict.fromkeys(['xmax','dx','tmax','dt','u0','k','E_prior','E_true','stations','sigmaxa','sigmaxe','noisemult','noiseadd', 'precon','rerunning','accuracy'])
+        self.P = dict.fromkeys(['xmax','dx','tmax','dt','u0','k','E_prior','E_true','stations','sigmaxa','sigmaxe','noisemult','noiseadd', 'precon','rerunning','accuracy','Offdiags'])
         self.P.update(parameters)
                 
         # Initialize some quantities
@@ -15,14 +15,33 @@ class AdjoinedModel(object):
         self.x = self.P['dx'] * np.arange(self.P['nx'])
         self.xvec  = np.arange(0,self.P['xmax'],self.P['dx'])
         
-        self.Sa = np.diag(self.P['sigmaxa']*np.ones(self.P['nx']))
-        self.Se = np.diag(self.P['sigmaxe']*np.ones(self.P['nt']))
-        self.Sai = np.diag((1/self.P['sigmaxa'])*np.ones(self.P['nx']))
-        self.Sei = np.diag((1/self.P['sigmaxe'])*np.ones(self.P['nt']))
-        self.b       = self.Sa
-        L_preco = sqrt(self.b)
-        L_adj   = transpose(L_preco)
-        self.L_adj = L_adj
+        Sa = np.diag(self.P['sigmaxa']*np.ones(self.P['nx']))
+        Se = np.diag(self.P['sigmaxe']*np.ones(self.P['nt']))
+        
+        if self.P['Offdiags']==1:
+            for i in range(0,len(Sa)):
+                for j in range(0,len(Sa[i])):
+                    if np.abs(i-j)<5:
+                        Sa[i,j]=self.P['sigmaxa']*exp(-(np.abs(i-j)/5.))
+            for i in range(0,len(Se)):
+                for j in range(0,len(Se[i])):
+                    if np.abs(i-j)<5:
+                        Se[i,j]=self.P['sigmaxe']*exp(-(np.abs(i-j)/5.))
+            self.Sai = linalg.inv(Sa)
+            self.Sei = linalg.inv(Se)
+        else:
+            self.Sai = np.diag((1/self.P['sigmaxa'])*np.ones(self.P['nx']))
+            self.Sei = np.diag((1/self.P['sigmaxe'])*np.ones(self.P['nt']))
+            
+            
+        self.Sa=Sa
+        self.Se=Se
+        
+        
+        self.b          = self.Sa
+        L_preco         = sqrt(self.b)
+        L_adj           = transpose(L_preco)
+        self.L_adj      = L_adj
         
         # Run true forward model
         Parameters_true = {'xmax':self.P['xmax'],'dx':self.P['dx'],'tmax':self.P['tmax'],'dt':self.P['dt'],'u0':self.P['u0'],'k':self.P['k'],'E':self.P['E_true']}
@@ -44,9 +63,9 @@ class AdjoinedModel(object):
         # Set integration rule to Upwind + Euler, if not otherwise specified
         self.method = method
 
-    def TestAdjoined(self,alpha,element):
-        Cost_prior = AdjoinedModel.Cost(self,self.P['E_prior'])
-        Derivative = AdjoinedModel.Adjoined(self,self.P['E_prior'],self.P['E_prior'])
+    def TestAdjoint(self,alpha,element):
+        Cost_prior = AdjointModel.Cost(self,self.P['E_prior'])
+        Derivative = AdjointModel.Adjoint(self,self.P['E_prior'],self.P['E_prior'])
         E_test=np.zeros(self.P['nx'])
         E0=1
         for j in range(0,self.P['nx']):
@@ -55,7 +74,7 @@ class AdjoinedModel(object):
             if len(where(np.array(sources_guess)==x)[0])>0:
                 E_test[j]=E0
         E_test[element]=E_test[element]+alpha
-        Cost_test = AdjoinedModel.Cost(self,E_test)
+        Cost_test = AdjointModel.Cost(self,E_test)
         
         DE=np.zeros(self.P['nx'])-0.000000001
         E_new=np.zeros(self.P['nx'])
@@ -67,7 +86,7 @@ class AdjoinedModel(object):
                 E_new[j]=E0
         print(Derivative)
         E_new=E_new+DE*Derivative
-        Cost_new = AdjoinedModel.Cost(self,E_new)
+        Cost_new = AdjointModel.Cost(self,E_new)
         
         print('================================================')
         print('--- Testing ---')
@@ -78,36 +97,37 @@ class AdjoinedModel(object):
         print('Cost function change',Cost_new-Cost_prior)
         print('================================================')
         
-    def AdjoinedModelling(self):
+    def AdjointModelling(self):
         L_preco = sqrt(self.b)
         L_adj   = transpose(L_preco)
         L_inv   = linalg.inv(L_preco)
         E_final = self.P['E_prior']
         
         print('================================================')
-        print('--- Adjoined modelling started ---')
+        print('--- Adjoint modelling started ---')
+        print('================================================')
         
         E_final = self.P['E_prior']
         if self.P['precon']==1:
             for i in range(0,self.P['rerunning']):
-                pstate, pderiv = state_to_precon(L_inv, L_adj, E_final, E_prior, Adjoined_priorint(E_final))
-                state_opt=optimize.fmin_bfgs(Cost,pstate,Adjoined_priorint,gtol=self.P['accuracy'],disp=0)
+                pstate, pderiv = state_to_precon(L_inv, L_adj, E_final, E_prior, Adjoint_priorint(E_final))
+                state_opt=optimize.fmin_bfgs(Cost,pstate,Adjoint_priorint,gtol=self.P['accuracy'],disp=0)
                 E_final = precon_to_state( L_preco, state_opt, E_prior )
                 print('================================================')
                 print('--- one run ended ---')
                 print('================================================')
         elif self.P['precon']==0:
             for i in range(0,self.P['rerunning']):
-                E_final=optimize.fmin_bfgs(Cost,E_final,Adjoined_priorint,gtol=self.P['accuracy'],disp=0)
+                E_final=optimize.fmin_bfgs(Cost,E_final,Adjoint_priorint,gtol=self.P['accuracy'],disp=0)
                 print('================================================')
                 print('--- one run ended ---')
                 print('================================================')
                 
         self.E_final=E_final
-        print('--- Adjoined modelling completed ---')
+        print('--- Adjoint modelling completed ---')
         print('================================================')
         
-    def Plots(self):
+    def Plots(self,Station):
         
         matplotlib.style.use('ggplot')
         fig=plt.figure(num=None, figsize=(7,3),dpi=150, facecolor='w', edgecolor='k') # little: 5,3, large: 9,3
@@ -128,7 +148,6 @@ class AdjoinedModel(object):
         m = TracerModel(Parameters_iteration,method=self.method,initialvalue=0)
         m.integrateModel()
         self.Obs_final=m.results[:,stations]
-        Station = 0
         
         matplotlib.style.use('ggplot')
         fig=plt.figure(num=None, figsize=(7,3),dpi=150, facecolor='w', edgecolor='k') # little: 5,3, large: 9,3
@@ -145,23 +164,23 @@ class AdjoinedModel(object):
 
 
 # ------------------------------------------------------
-# Three important functions
+# Some important functions
 # ------------------------------------------------------
 
-def Adjoined(x,x_prior):
+def Adjoint(x,x_prior):
     Parameters_iteration = {'xmax':m.P['xmax'],'dx':m.P['dx'],'tmax':m.P['tmax'],'dt':m.P['dt'],'u0':m.P['u0'],'k':m.P['k'],'E':x}
     M = TracerModel(Parameters_iteration,method='Upwind',initialvalue=0)
     M.integrateModel()
     Obs_iteration=M.results[:,stations]
     forcing = np.matmul(m.Sei,np.array(Obs_iteration)-np.array(m.Obs_true))  # (Hx-y)
     timevec=range(0,nt)
-    C_adjoined = np.zeros(nx)
-    E_adjoined = np.zeros(nx)
+    C_Adjoint = np.zeros(nx)
+    E_Adjoint = np.zeros(nx)
     for times in timevec[::-1]:
-        C_adjoined[stations] = C_adjoined[stations] + forcing[times]
-        C_adjoined = np.matmul(np.transpose(m.Transport),C_adjoined)
-        E_adjoined = E_adjoined + C_adjoined*Dt
-    derivative = 2*np.matmul(m.Sai,x-x_prior)+ 2*E_adjoined   
+        C_Adjoint[stations] = C_Adjoint[stations] + forcing[times]
+        C_Adjoint = np.matmul(np.transpose(m.Transport),C_Adjoint)
+        E_Adjoint = E_Adjoint + C_Adjoint*Dt
+    derivative = 2*np.matmul(m.Sai,x-x_prior)+ 2*E_Adjoint   
     m.derivative=derivative
     
 def Cost(x):
@@ -173,23 +192,23 @@ def Cost(x):
     m.Costres=Cost
     return Cost
 
-def Adjoined_priorint(x):
+def Adjoint_priorint(x):
     '''
-    adjoined model with given E_prior so that it has only 1 element
+    Adjoint model with given E_prior so that it has only 1 element
     '''
     Parameters_iteration = {'xmax':m.P['xmax'],'dx':m.P['dx'],'tmax':m.P['tmax'],'dt':m.P['dt'],'u0':m.P['u0'],'k':m.P['k'],'E':x}
     M = TracerModel(Parameters_iteration,method=m.method,initialvalue=0)
     M.integrateModel()
     Obs_iteration=M.results[:,m.P['stations']]
     forcing = np.matmul(m.Sei,np.array(Obs_iteration)-np.array(m.Obs_true))  # (Hx-y)
-    C_adjoined = np.zeros(m.P['nx'])
-    E_adjoined = np.zeros(m.P['nx'])
+    C_Adjoint = np.zeros(m.P['nx'])
+    E_Adjoint = np.zeros(m.P['nx'])
     timevec=range(0,m.P['nt'])
     for times in timevec[::-1]:
-        C_adjoined[stations] = C_adjoined[m.P['stations']] + forcing[times]
-        C_adjoined = np.matmul(np.transpose(m.Transport),C_adjoined)
-        E_adjoined = E_adjoined + C_adjoined*m.P['dt']
-    derivative = 2*np.matmul(m.Sai,x-m.P['E_prior'])+ 2*E_adjoined
+        C_Adjoint[stations] = C_Adjoint[m.P['stations']] + forcing[times]
+        C_Adjoint = np.matmul(np.transpose(m.Transport),C_Adjoint)
+        E_Adjoint = E_Adjoint + C_Adjoint*m.P['dt']
+    derivative = 2*np.matmul(m.Sai,x-m.P['E_prior'])+ 2*E_Adjoint
     deriv=np.dot(m.L_adj,derivative)#???????????????????!
     print ('Cost function', Cost(x), 'Squared gradient',np.dot(deriv,deriv))
     m.deriv=deriv
