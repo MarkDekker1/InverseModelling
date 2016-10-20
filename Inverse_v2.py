@@ -3,8 +3,7 @@
 from Class_Tracer_v2 import *
 
 from numpy.linalg import matrix_power,inv
-import scipy.linalg as la
-
+#import scipy.linalg as la
 
 # FORWARD PARAMETERS
 #Constants
@@ -16,15 +15,15 @@ gamma   =   0.9
 Dx      =   xmax / 100
 Dt      =   gamma * Dx / u0 #0.1
 E0      =   1 # source strength
-sources = [10,50,60] # source locations as percentage of xmax
+sources =   [10,50,60] # source locations as percentage of xmax
 
 # INVERSE PARAMETERS
 stations    = [20,70,90] # measurement stations as percentage of xmax
 # error estimates 
 sigmaxa     = 0.001 #10        #e-9 #20#0.00001 # error in the prior
 sigmaxe     = 2e-5  #0.0000001 #    #0.00000000001 # error in the observations
-noiseadd    = 0.01 # additive noise amplitude on measurements in concentration units
-noisemult   = 0.01 # multiplicative noise amplitude on measurements (fraction)
+noiseadd    = 0.0040#0.01 # additive noise amplitude on measurements in concentration units
+noisemult   = 0.020#0.01 # multiplicative noise amplitude on measurements (fraction)
 # ======================================
 # DERIVED PARAMETERS
 nx      =   np.int(xmax/Dx)
