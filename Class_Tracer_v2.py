@@ -82,15 +82,15 @@ class TracerModel(object):
         # Set integration rule to Upwind + Euler, if not otherwise specified
         self.method = method
 
-        if None in self.P.values():
-            print('WARNING: SOME NECESSARY PARAMETERS HAVE NOT BEEN SPECIFIED. FIX BEFORE RUN')
-            print('These parameters are undefined:')
-            for key in self.P:
-                if self.P[key] == None:
-                    print(key)
+        #if None in self.P.values():
+        #    print('WARNING: SOME NECESSARY PARAMETERS HAVE NOT BEEN SPECIFIED. FIX BEFORE RUN')
+        #    print('These parameters are undefined:')
+        #    for key in self.P:
+        #        if self.P[key] == None:
+        #            print(key)
 
         self.initialize()
-        print('Model initialized')
+        #print('Model initialized')
 
     def initialize(self):
         '''
@@ -133,7 +133,7 @@ class TracerModel(object):
         #    sys.exit('Initial value has wrong dimension: %s instead of %s' % (str(self.initialvalue.shape),str(self.results[0,:])))
         #else:
         #    self.results[0,:] = self.initialvalue
-        print('Done with initialize')
+        #print('Done with initialize')
 
 
     def updateParameters(self,newParams):
@@ -221,27 +221,29 @@ class TracerModel(object):
             b0 = 1 - self.P['gamma']
             bp1 = 0
             Mtot = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
+            Mtot2 = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
 
             # assign matrices to properties
             #self.Mtot = Mtot
             self.Mtot = sp.csc_matrix(Mtot)
+            self.Mtot2 = Mtot2
             self.M2 = 0
 
             # MODEL RUN
             start_time = T.time()
-            print('================================================')
-            print('Starting model run with method %s' % self.method)
+            #print('================================================')
+            #print('Starting model run with method %s' % self.method)
 
             for ti in range(0,self.P['nt']-1):
                 #self.results[ti+1,:] = np.matmul(Mtot,self.results[ti,:]) + self.P['dt'] * self.P['E']
                 self.results[ti+1,:] = Mtot.dot(self.results[ti,:].transpose()) + self.P['dt'] * self.P['E']
 
-                if np.mod(ti,np.int(self.P['nt']/10))==0:
-                    print('Progress is at ', ti/self.P['nt']*100., 'percent')
+            #    if np.mod(ti,np.int(self.P['nt']/10))==0:
+            #        print('Progress is at ', ti/self.P['nt']*100., 'percent')
 
-            print('Total time required: %.2f seconds' % (T.time() - start_time))
-            print('Model run finished')
-            print('================================================')
+            #print('Total time required: %.2f seconds' % (T.time() - start_time))
+            #print('Model run finished')
+            #print('================================================')
             # END OF MODEL RUN
 
         elif self.method == 'LaxWendroff':
