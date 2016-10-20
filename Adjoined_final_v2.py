@@ -19,17 +19,18 @@ Dt          =   gamma * Dx / u0
 Dt          =   0.1
 E0          =   1
 sources     =   [1,10,50]#,50]
-sources_guess=  [30000]
+sources_guess=  [3,13,53]
 stations    =   np.arange(0,xmax,1)#[5,10,20]#,40]#,60,80,90]
 stations    =   [2,5,9,15,20]#,28,32,40,60,80]
 stations    =   [20,40,60,80]
 nx          =   np.int(xmax/Dx)
 nt          =   np.int(tmax/Dt)
 xvec        =   np.arange(0,xmax,Dx)
-sigmaxa     =   0.001
-sigmaxe     =   2e-8
+sigmaxa     =   1
+sigmaxe     =   0.001
 epsilon     =   0.000000000000001
 J           =   100 # amount of adjoined iterations (should be equal to time?)
+accuracy        =   1e3
 
 # ------------------------------------------------------
 # Emission vectors and error covariance matrices
@@ -74,21 +75,13 @@ def Adjoined(x,x_prior):
     derivative = 2*matmul(Sai,x-x_prior)+ 2*E_adjoined   
     return derivative
     
-def Cost(x,x_prior):
-    Parameters_iteration = {'xmax':xmax,'dx':Dx,'tmax':tmax,'dt':Dt,'u0':u0,'k':k,'E':x}
-    m = TracerModel(Parameters_iteration,method='Upwind',initialvalue=0)
+def Cost(x):
+    Parameters = {'xmax':xmax,'dx':Dx,'tmax':tmax,'dt':Dt,'u0':u0,'k':k,'E':x}
+    m = TracerModel(Parameters,method='Upwind',initialvalue=0)
     m.integrateModel()
-    Obs_iteration=m.results[:,stations]
-    forcing = matmul(Sei,array(Obs_iteration)-array(Obs_true))  # (Hx-y)
-    timevec=range(0,nt)
-    C_adjoined = zeros(nx)
-    E_adjoined = zeros(nx)
-    for times in timevec[::-1]:
-        C_adjoined[stations] = C_adjoined[stations] + forcing[times]
-        C_adjoined = matmul(np.transpose(Transport),C_adjoined)
-        E_adjoined = E_adjoined + C_adjoined*Dt
-    derivative = 2*matmul(Sai,x-x_prior)+ 2*E_adjoined   
-    return derivative
+    Obs=m.results[:,stations]
+    Cost=1/sigmaxe*sum((array(Obs_true)-array(Obs))**2)+1/sigmaxa*sum((array(x)-array(E_prior))**2)
+    return Cost
 
 # ------------------------------------------------------
 # Forward run and define F matrix
@@ -109,10 +102,10 @@ TransEmis = F
 # Prior run
 # ------------------------------------------------------
     
-m_prior = TracerModel(Parameters_prior,method='Upwind',initialvalue=0)
-m_prior.integrateModel()
-Obs_prior=m_prior.results[:,stations]
-Cost_prior = 1/sigmaxe*sum((array(Obs_prior)-array(Obs_true))**2)+1/sigmaxa*sum((array(E_prior)-array(E_prior))**2)
+#m_prior = TracerModel(Parameters_prior,method='Upwind',initialvalue=0)
+#m_prior.integrateModel()
+#Obs_prior=m_prior.results[:,stations]
+Cost_prior = Cost(E_prior)#1/sigmaxe*sum((array(Obs_prior)-array(Obs_true))**2)+1/sigmaxa*sum((array(E_prior)-array(E_prior))**2)
 Derivative = Adjoined(E_prior,E_prior)
 
 # ------------------------------------------------------
@@ -129,11 +122,12 @@ for j in range(0,nx):
     if len(where(np.array(sources_guess)==x)[0])>0:
         E_test[j]=E0
 E_test[Q]=E_test[Q]+alpha
-Parameter_test = {'xmax':xmax,'dx':Dx,'tmax':tmax,'dt':Dt,'u0':u0,'k':k,'E':E_test}
-m_test = TracerModel(Parameter_test,method='Upwind',initialvalue=0)
-m_test.integrateModel()
-Obs_test=m_test.results[:,stations]
-Cost_test = 1/sigmaxe*sum((array(Obs_test)-array(Obs_true))**2)+1/sigmaxa*sum((array(E_test)-array(E_prior))**2)
+
+#Parameter_test = {'xmax':xmax,'dx':Dx,'tmax':tmax,'dt':Dt,'u0':u0,'k':k,'E':E_test}
+#m_test = TracerModel(Parameter_test,method='Upwind',initialvalue=0)
+#m_test.integrateModel()
+#Obs_test=m_test.results[:,stations]
+Cost_test = Cost(E_test)#1/sigmaxe*sum((array(Obs_test)-array(Obs_true))**2)+1/sigmaxa*sum((array(E_test)-array(E_prior))**2)
 
 print('Cost function',Cost_prior)
 print('Calculated-derivative:',Derivative[Q])
@@ -152,14 +146,49 @@ for j in range(0,nx):
     if len(where(np.array(sources_guess)==x)[0])>0:
         E_new[j]=E0
 E_new=E_new+DE*Derivative
-Parameter_new = {'xmax':xmax,'dx':Dx,'tmax':tmax,'dt':Dt,'u0':u0,'k':k,'E':E_new}
-m_new = TracerModel(Parameter_new,method='Upwind',initialvalue=0)
-m_new.integrateModel()
-Obs_new=m_new.results[:,stations]
-Cost_new = 1/sigmaxe*sum((array(Obs_new)-array(Obs_true))**2)+1/sigmaxa*sum((array(E_new)-array(E_prior))**2)
+#Parameter_new = {'xmax':xmax,'dx':Dx,'tmax':tmax,'dt':Dt,'u0':u0,'k':k,'E':E_new}
+#m_new = TracerModel(Parameter_new,method='Upwind',initialvalue=0)
+#m_new.integrateModel()
+#Obs_new=m_new.results[:,stations]
+Cost_new = Cost(E_new)#1/sigmaxe*sum((array(Obs_new)-array(Obs_true))**2)+1/sigmaxa*sum((array(E_new)-array(E_prior))**2)
 print('Cost function one time',Cost_new)
 print('Cost function change',Cost_new-Cost_prior)
-#
+
+def Adjoined_mean(x):
+    Parameters_iteration = {'xmax':xmax,'dx':Dx,'tmax':tmax,'dt':Dt,'u0':u0,'k':k,'E':x}
+    m = TracerModel(Parameters_iteration,method='Upwind',initialvalue=0)
+    m.integrateModel()
+    Obs_iteration=m.results[:,stations]
+    forcing = matmul(Sei,array(Obs_iteration)-array(Obs_true))  # (Hx-y)
+    C_adjoined = np.zeros(nx)
+    E_adjoined = np.zeros(nx)
+    timevec=range(0,nt)
+    for times in timevec[::-1]:
+        C_adjoined[stations] = C_adjoined[stations] + forcing[times]
+        C_adjoined = matmul(np.transpose(Transport),C_adjoined)
+        E_adjoined = E_adjoined + C_adjoined*Dt
+    derivative = 2*matmul(Sai,x-E_prior)+ 2*E_adjoined   
+    return derivative
+
+from scipy.optimize import *
+E_final=optimize.fmin_bfgs(Cost,E_prior,Adjoined_mean,gtol=accuracy)#min_func,pstate,deriv_func, gtol=1e-1)
+
+matplotlib.style.use('ggplot')
+fig=plt.figure(num=None, figsize=(7,3),dpi=150, facecolor='w', edgecolor='k') # little: 5,3, large: 9,3
+plt.scatter(stations,np.zeros(len(stations))+0.03,s=100,c='orange',alpha=1,zorder=15,edgecolor='k',linewidth=2,label='Measuring Stations')
+plt.plot(E_prior,label='Prior',linewidth=4)
+plt.plot(E_true,'dimgray',label='Actual',linewidth=2)
+plt.plot(E_final,label='Determined',linewidth=4)
+plt.xlabel('Distance x',fontsize=15)
+plt.ylabel('Emission strength',fontsize=15)
+plt.tick_params(axis='both', which='major', labelsize=15)
+plt.xlim([0,xmax])
+plt.ylim([-0.2,1])
+plt.legend(fontsize=9)
+fig.tight_layout()
+plt.show()
+
+#%%
 # ------------------------------------------------------
 # Run Adjoined model - steepest-descent algorithm
 # ------------------------------------------------------
