@@ -29,7 +29,7 @@ xvec        =   np.arange(0,xmax,Dx)
 sigmaxa     =   0.001
 sigmaxe     =   2e-8
 epsilon     =   0.000000000000001
-J           =   30000 # amount of adjoined iterations (should be equal to time?)
+J           =   100 # amount of adjoined iterations (should be equal to time?)
 
 # ------------------------------------------------------
 # Emission vectors and error covariance matrices
@@ -59,6 +59,22 @@ Sei = np.diag((1/sigmaxe)*np.ones(nt))
 # ------------------------------------------------------
 
 def Adjoined(x,x_prior):
+    Parameters_iteration = {'xmax':xmax,'dx':Dx,'tmax':tmax,'dt':Dt,'u0':u0,'k':k,'E':x}
+    m = TracerModel(Parameters_iteration,method='Upwind',initialvalue=0)
+    m.integrateModel()
+    Obs_iteration=m.results[:,stations]
+    forcing = matmul(Sei,array(Obs_iteration)-array(Obs_true))  # (Hx-y)
+    timevec=range(0,nt)
+    C_adjoined = zeros(nx)
+    E_adjoined = zeros(nx)
+    for times in timevec[::-1]:
+        C_adjoined[stations] = C_adjoined[stations] + forcing[times]
+        C_adjoined = matmul(np.transpose(Transport),C_adjoined)
+        E_adjoined = E_adjoined + C_adjoined*Dt
+    derivative = 2*matmul(Sai,x-x_prior)+ 2*E_adjoined   
+    return derivative
+    
+def Cost(x,x_prior):
     Parameters_iteration = {'xmax':xmax,'dx':Dx,'tmax':tmax,'dt':Dt,'u0':u0,'k':k,'E':x}
     m = TracerModel(Parameters_iteration,method='Upwind',initialvalue=0)
     m.integrateModel()
@@ -188,7 +204,7 @@ while j<J and K>mean(abs(E_new - E_old)) or i<=1:
     
     if np.mod(j,J/10.)==0:
         i=i+1
-        print(j/J*100,'%')
+        print(np.round(j/J,2)*100,'%')
 #
 E_final=E_new
 Parameter_final = {'xmax':xmax,'dx':Dx,'tmax':tmax,'dt':Dt,'u0':u0,'k':k,'E':E_final}

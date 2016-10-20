@@ -37,7 +37,7 @@ Parameter_initial = {
     }
 
 
-m1 = TracerModel(Parameter_initial,method='Leapfrog',initialvalue=0)
+m1 = TracerModel(Parameter_initial,method='Upwind',initialvalue=0)
 m1.integrateModel()
 
 #%% Animation

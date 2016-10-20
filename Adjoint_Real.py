@@ -14,8 +14,11 @@ tlen=np.int(tmax/Dt)
 xvec=np.zeros(100)
 k=0.1
 u0 = 5
+<<<<<<< HEAD
+=======
 nx=xmax/Dx
 nt=tmax/Dt
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 
 # ------------------------------------------------------
 # Define truth
@@ -110,13 +113,21 @@ for times in timevec[::-1]:
     E_adjoined = E_adjoined + C_adjoined*Dt
     #C_adjoined[100:] = C_adjoined[100:] + C_adjoined[:100]
     #E_adjoined = E_adjoined + C_adjoined
+<<<<<<< HEAD
+print('Guess dJ/dC:',2*C_adjoined, 2*E_adjoined)
+=======
 #print('Guess dJ/dC:',2*C_adjoined, 2*E_adjoined)
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 
 # ------------------------------------------------------
 # Test derivative for E[TestElement]
 # ------------------------------------------------------
 
+<<<<<<< HEAD
+alpha=0.001
+=======
 alpha=0.0001
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 TestElement=0
 E_test=E_guess
 E_test[TestElement]=E_guess[TestElement]+alpha
@@ -159,7 +170,11 @@ Parameter_initial = {
 m4 = TracerModel(Parameter_initial,method='Upwind',initialvalue=0)
 m4.integrateModel()
 Obs_new=m4.results
+<<<<<<< HEAD
+Cost_new = sum((array(Obs_new)-array(Obs_true))**2)
+=======
 Cost_new = sum((Obs_new-Obs_true)**2)
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 print('Old cost function',Cost_initial)
 print('New cost function:',Cost_new)
 
@@ -194,6 +209,8 @@ plt.tick_params(axis='both', which='major', labelsize=15)
 plt.legend(loc='best',fontsize=12)
 fig.tight_layout()
 plt.show()
+<<<<<<< HEAD
+=======
 #%%
 E_guess=np.zeros(100)
 E0=1
@@ -307,6 +324,7 @@ plt.legend(loc='best',fontsize=12)
 fig.tight_layout()
 plt.show()
 #print("The local minimum occurs at ", +x_new)
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 
 #%% 
 # ------------------------------------------------------
@@ -324,7 +342,10 @@ for j in range(0,xlen):
     xvec[j]=x
     if x==2 or x==12 or x==80:
         E_guess[j]=E0
+<<<<<<< HEAD
+=======
 E_guess=np.zeros(100)
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
 
 matplotlib.style.use('ggplot')
 fig=plt.figure(num=None, figsize=(7,7),dpi=150, facecolor='w', edgecolor='k') # little: 5,3, large: 9,3
@@ -347,7 +368,11 @@ for q in range(1,50):
         C_adjoined = matmul(np.transpose(Transport),C_adjoined)
         E_adjoined = E_adjoined + C_adjoined*Dt
     Derivative=E_adjoined
+<<<<<<< HEAD
+    DE=zeros(100)-0.00001/q
+=======
     DE=zeros(100)-0.00001
+>>>>>>> 923f33634b98cca36aea4e63cc94530de69c37fc
     E_new=E_guess+DE*Derivative
     print(q)
     
