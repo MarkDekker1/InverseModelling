@@ -153,6 +153,9 @@ class TracerModel(object):
         for key in paramList:
             print('{:.12s} , {:}'.format(key,self.P[key]))
 
+    # ===================================
+    # FORWARD PART
+
     def setInitial(self,initialvalue):
         '''
         Reinitialize the model with a new initial condition
@@ -161,10 +164,8 @@ class TracerModel(object):
         self.initialvalue = initialvalue
         self.initialize()
 
-
     def reportInitialState(self):   
         print('The initial state of the model is: later Ill do this')
-
 
     def set_method(self,method):
         '''
@@ -196,7 +197,6 @@ class TracerModel(object):
         # combine matrices
         Mtot = Madv - Mdec
         return Mtot
-
 
     def integrateModel(self):
         '''
@@ -305,7 +305,6 @@ class TracerModel(object):
 
         # =====================================
 
-
     # ===================================
     # INVERSE PART
     def inverseSetup(self,inverseParams):
@@ -315,6 +314,7 @@ class TracerModel(object):
             sys.exit('Essential paramter undefined! Essential parameters are "stations","sigmaxa","sigmaxe","noiseadd","noisemult"')
 
     def inverseUpdate(self,updateParams):
+        ''' Update inverse parameters'''
         self.Pinv.update(updateParams)
 
     def inverseKmatrix(self):
@@ -339,24 +339,31 @@ class TracerModel(object):
             K = np.zeros((nt,2*nx))
             for ni in range(nt):
                 K[ni] = matrix_power(F,ni)[i]
-            Khat = K[:,100:]
+            Khat = K[:,nx:]
             Khatlarge[numid*nt:(numid+1)*nt,:] = Khat
 
         # add additive and multiplicative noise
-        yinlarge = yinlarge * (1 + self.Pinv['noisemult'] * np.random.uniform(low=-1,high=1,size=len(yinlarge))) + self.Pinv['noiseadd'] * np.random.uniform(low=-1,high=1,size=len(yinlarge))
+        # uniform distribution
+        #yinlarge = yinlarge * (1 + self.Pinv['noisemult'] * np.random.uniform(low=-1,high=1,size=len(yinlarge))) + self.Pinv['noiseadd'] * np.random.uniform(low=-1,high=1,size=len(yinlarge))
+        # normal distribution
+        if self.Pinv['noisemult'] == 0:
+            self.Pinv['noisemult'] = 1e-20
+        if self.Pinv['noiseadd'] == 0:
+            self.Pinv['noiseadd'] = 1e-20
+        yinlarge = yinlarge * (1 + np.random.normal(loc=0,scale=self.Pinv['noisemult'],size=len(yinlarge))) + np.random.normal(loc=0,scale=self.Pinv['noiseadd'],size=len(yinlarge))
 
         # assign to model variables
         self.stationids = indices
         self.F = F
         self.Khatlarge = Khatlarge
         self.yinlarge = yinlarge
+        print('Computing K done')
 
     def inverseGmatrix(self):
         '''compute G matrix, depending on error covariances'''
         Sa = np.diag(self.Pinv['sigmaxa']*np.ones(self.P['nx']))
         Se = np.diag(self.Pinv['sigmaxe']*np.ones(self.P['nt']*len(self.Pinv['stations'])))
 
-        print('Computing best estimate')
         # construct G matrix (Jacob, eq. 5.9)
         G = np.matmul(np.matmul(inv(np.matmul(np.matmul(self.Khatlarge.transpose(),inv(Se)),self.Khatlarge)+inv(Sa)),self.Khatlarge.transpose()),inv(Se))
 
@@ -368,6 +375,7 @@ class TracerModel(object):
         self.Se = Se
         self.G = G
         self.Shat = Shat
+        print('Computing G done')
 
     def inverseSolution(self,xa=None):
         '''compute solution of inverse problem'''
@@ -381,13 +389,21 @@ class TracerModel(object):
 
         # compute deviation between actual and recovered sources
         rmsdev = ( np.mean((x-self.P['E'])**2)  )**0.5
+        # compute correlation between actual and recovered sources
+        xcorr = np.corrcoef(x,self.P['E'])
 
         # assign to model variables
         self.Einv = x
         self.rmsdev = rmsdev
+        self.Einvcorr = xcorr[0,1]
+        print('Computing Inverse done')
+
+    def inverseCost(self,x,xa):
+        '''return the cost of a solution x relative to an initial guess xa'''
+        return np.matmul(x-xa,np.matmul(inv(self.Sa),x-xa)) + np.matmul(self.yinlarge-np.matmul(self.Khatlarge,x),np.matmul(inv(self.Se),self.yinlarge-np.matmul(self.Khatlarge,x)))
 
     # ===================================
-
+    # OUTPUT
 
     def saveModel(self,savename):
         '''
@@ -409,4 +425,4 @@ class TracerModel(object):
         container['results'] = self.results
 
         np.save(savename + '.npy', container)
-        print('Saving done')
+        print('Saving done')    
