@@ -18,9 +18,19 @@ import matplotlib.pyplot as plt
 #matplotlib.style.use('ggplot')
 #import matplotlib.cm as cm
 
+# Define sample color list
+colors = []
+fig, ax = plt.subplots(1)
+for i in range(7):
+    p=ax.plot(np.arange(5),(i+1)*np.arange(5),lw=10)
+    colors.append(p[0].get_color())
+plt.close(fig)
+
+
 # Graphics
 def figsize(scale):
-    fig_width_pt = 426.79135 #pt 278.83713 #469.755    # Get this from LaTeX using \the\textwidth
+    '''Give fraction of width, get figsize in inches with height scaled according to golden_mean'''
+    fig_width_pt = 290.74263# 426.79135 #pt 278.83713 #469.755    # Get this from LaTeX using \the\textwidth
     inches_per_pt = 1.0/72.27                       # Convert pt to inch
     golden_mean = (np.sqrt(5.0)-1.0)/2.0            # Aesthetic ratio (you could change this)
     fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
@@ -28,18 +38,116 @@ def figsize(scale):
     fig_size = [fig_width,fig_height]
     return fig_size
 
+def figsize2(width,height):
+    '''Give fraction of width and heigt, get figsize in inches'''
+    textwidth_pt = 342.2953 #290.74263
+    textheight_pt = 249.41339 #224.14662
+    inches_per_pt = 1.0/72.27 
+    return textwidth_pt * inches_per_pt * width,textheight_pt * inches_per_pt * height
+
 # I make my own newfig and savefig functions
-def newfig(width,nr=1,nc=1):
-    #plt.clf()
-    fig,ax = plt.subplots(nrows=nr,ncols=nc,figsize=figsize(width),dpi=300)
-    #fig = plt.figure(figsize=figsize(width))
-    #fig.dpi = 300
-    #ax = fig.add_subplot(111)
+def newfig(width,nr=1,nc=1,**kwargs):
+    '''use function figsize'''
+    fig,ax = plt.subplots(nrows=nr,ncols=nc,figsize=figsize(width),**kwargs)
+    return fig, ax
+
+def newfig2(width,height,nr=1,nc=1,**kwargs):
+    '''use function figsize2'''
+    fig,ax = plt.subplots(nrows=nr,ncols=nc,figsize=figsize2(width,height),**kwargs)
     return fig, ax
 
 def savefig(fig,filename):
     fig.savefig('{}.pgf'.format(filename))
     fig.savefig('{}.pdf'.format(filename))
+
+
+def runTracerModel(Params,mode='both'):
+    '''
+    Run a default setup of the forward and inverse model using class TracerModel
+
+    INPUTS:
+    -Params:
+        Parameters can be changed by providing them in Params
+        Changeable parameters:
+            'xmax','dx','tmax','dt','u0','k','E','stations','sigmaxa','sigmaxe','noiseadd','noisemult'
+
+    -mode:
+        Run either forward or both forward and inverse model
+        possible values:
+            'forward' : run only forward model
+            'both'    : run both forward and inverse model
+    '''
+
+    # FORWARD PARAMETERS
+    xmax    =   100 # 40000e3
+    u0      =   5
+    tmax    =   10* xmax / u0
+    k       =   0.1 
+    gamma   =   0.9
+    Dx      =   xmax / 100
+    Dt      =   gamma * Dx / u0 
+    E0      =   1 # source strength
+    sources =   [10,50,60] # source locations 
+    # INVERSE PARAMETERS
+    stations    = [20,40,60,80] # measurement stations
+    # error estimates 
+    sigmaxa     = 0.001 # error in the prior
+    sigmaxe     = 2e-5  # error in the observations
+    noiseadd    = 0.0040  # additive noise amplitude 
+    noisemult   = 0.020  # multiplicative noise amplitude 
+    # ======================================
+    # DERIVED PARAMETERS
+    nx      =   np.int(xmax/Dx)
+    #Set up source array E
+    E   =   np.zeros(nx)
+    source_ids = (np.array(sources) * nx//100).astype(int)
+    source_mag = [E0/Dx] # source strengths
+    E[source_ids] = source_mag
+
+    # ======================================
+    # ASSEMBLE PARAMETERS
+    # ======================================
+
+    Parameter_all = {
+        'xmax':xmax,
+        'dx':Dx,
+        'tmax':tmax,
+        'dt':Dt,
+        'u0':u0,
+        'k':k,
+        'E':E,
+        'stations':stations,
+        'sigmaxa':sigmaxa,
+        'sigmaxe':sigmaxe,
+        'noiseadd':noiseadd,
+        'noisemult':noisemult        
+        }
+
+    # ======================================
+    # UPDATE PARAMETERS USING PROVIDED ONES
+    # ======================================
+    Parameter_all.update(Params)
+    # ======================================
+    # FORWARD
+    # ======================================
+    m1 = TracerModel(Parameter_all,method='Upwind',initialvalue=0)
+    m1.integrateModel()
+
+    # if mode is forward, skip inverse part and return model
+    if mode == 'forward':
+        return m1
+
+    # ======================================
+    # INVERSE
+    # ======================================
+    start_time = T.time()
+    m1.inverseSetup(Parameter_all)
+    m1.inverseKmatrix()
+    m1.inverseGmatrix()
+    m1.inverseSolution()
+    print('Total time for Inverse run: %.2f seconds' % (T.time() - start_time))
+
+    return m1
 
 class TracerModel(object):
 
@@ -221,12 +329,12 @@ class TracerModel(object):
             b0 = 1 - self.P['gamma']
             bp1 = 0
             Mtot = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
-            Mtot2 = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
+            #Mtot2 = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
 
             # assign matrices to properties
             #self.Mtot = Mtot
             self.Mtot = sp.csc_matrix(Mtot)
-            self.Mtot2 = Mtot2
+            #self.Mtot2 = Mtot2
             self.M2 = 0
 
             # MODEL RUN
