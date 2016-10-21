@@ -1,4 +1,5 @@
 from numpy import *
+import numpy as np
 from Class_Tracer_v2 import *
 from scipy.optimize import *
 import matplotlib.pyplot as plt
@@ -6,7 +7,8 @@ import matplotlib
 
 class AdjointModel(object):
     def __init__(self,parameters,method='Upwind',initialvalue=None):
-        self.P = dict.fromkeys(['xmax','dx','tmax','dt','u0','k','E_prior','E_true','stations','sigmaxa','sigmaxe','noisemult','noiseadd', 'precon','rerunning','accuracy','Offdiags'])
+        import numpy as np
+        self.P = dict.fromkeys(['xmax','dx','tmax','dt','u0','k','E_prior','E_true','stations','sigmaxa','sigmaxe','noisemult','noiseadd', 'precon','rerunning','accuracy','Offdiags', 'BFGS','Sa_vec'])
         self.P.update(parameters)
                 
         # Initialize some quantities
@@ -16,33 +18,28 @@ class AdjointModel(object):
         self.xvec  = np.arange(0,self.P['xmax'],self.P['dx'])
         
         Sa = np.diag(self.P['sigmaxa']*np.ones(self.P['nx']))
+        Sa = np.diag(self.P['Sa_vec'])
         Se = np.diag(self.P['sigmaxe']*np.ones(self.P['nt']))
         
         if self.P['Offdiags']==1:
             for i in range(0,len(Sa)):
                 for j in range(0,len(Sa[i])):
-                    if np.abs(i-j)<5:
+                    if np.abs(i-j)<5 and i!=j:
                         Sa[i,j]=self.P['sigmaxa']*exp(-(np.abs(i-j)/5.))
             for i in range(0,len(Se)):
                 for j in range(0,len(Se[i])):
-                    if np.abs(i-j)<5:
+                    if np.abs(i-j)<5 and i!=j:
                         Se[i,j]=self.P['sigmaxe']*exp(-(np.abs(i-j)/5.))
             self.Sai = linalg.inv(Sa)
             self.Sei = linalg.inv(Se)
         else:
-            self.Sai = np.diag((1/self.P['sigmaxa'])*np.ones(self.P['nx']))
-            self.Sei = np.diag((1/self.P['sigmaxe'])*np.ones(self.P['nt']))
+            self.Sai = linalg.inv(Sa)#np.diag((1/self.P['sigmaxa'])*np.ones(self.P['nx']))
+            self.Sei = linalg.inv(Se)#np.diag((1/self.P['sigmaxe'])*np.ones(self.P['nt']))
             
             
         self.Sa=Sa
         self.Se=Se
-        
-        
-        self.b          = self.Sa
-        L_preco         = sqrt(self.b)
-        L_adj           = transpose(L_preco)
-        self.L_adj      = L_adj
-        
+                
         # Run true forward model
         Parameters_true = {'xmax':self.P['xmax'],'dx':self.P['dx'],'tmax':self.P['tmax'],'dt':self.P['dt'],'u0':self.P['u0'],'k':self.P['k'],'E':self.P['E_true']}
         m_true = TracerModel(Parameters_true,method=method,initialvalue=0)
@@ -53,7 +50,19 @@ class AdjointModel(object):
             Obs_true.append( Obs_true_raw[i]*(1+noisemult*np.random.uniform(low=-1,high=1,size=(len(Obs_true_raw[i]))))+noiseadd*np.random.uniform(low=-1,high=1,size=(len(Obs_true_raw[i]))))
         self.Obs_true=np.array(Obs_true)
         self.Obs_true_raw=Obs_true_raw
-        self.Transport = m_true.Mtot2        
+        self.Transport = m_true.Mtot2       
+        
+        # Preconditioning
+        if self.P['precon']==1:
+            self.B=self.Sa
+            self.values,self.vectors = np.linalg.eig(self.B)
+            self.V=np.matmul(np.transpose(self.vectors),np.sqrt(np.diag(self.values)))
+            self.Vi=np.linalg.inv(self.V)
+            
+        self.b          = self.Sa
+        L_preco         = np.sqrt(self.b)
+        L_adj           = np.transpose(L_preco)
+        self.L_adj      = L_adj
                   
         # Set initial value to zero, if not specified
         self.initialvalue = 0
@@ -98,9 +107,9 @@ class AdjointModel(object):
         print('================================================')
         
     def AdjointModelling(self):
-        L_preco = sqrt(self.b)
-        L_adj   = transpose(L_preco)
-        L_inv   = linalg.inv(L_preco)
+        L_preco = np.sqrt(self.b)
+        L_adj   = np.transpose(L_preco)
+        L_inv   = np.linalg.inv(L_preco)
         E_final = self.P['E_prior']
         
         print('================================================')
@@ -108,20 +117,46 @@ class AdjointModel(object):
         print('================================================')
         
         E_final = self.P['E_prior']
-        if self.P['precon']==1:
-            for i in range(0,self.P['rerunning']):
-                pstate, pderiv = state_to_precon(L_inv, L_adj, E_final, E_prior, Adjoint_priorint(E_final))
-                state_opt=optimize.fmin_bfgs(Cost,pstate,Adjoint_priorint,gtol=self.P['accuracy'],disp=0)
-                E_final = precon_to_state( L_preco, state_opt, E_prior )
-                print('================================================')
-                print('--- one run ended ---')
-                print('================================================')
-        elif self.P['precon']==0:
-            for i in range(0,self.P['rerunning']):
-                E_final=optimize.fmin_bfgs(Cost,E_final,Adjoint_priorint,gtol=self.P['accuracy'],disp=0)
-                print('================================================')
-                print('--- one run ended ---')
-                print('================================================')
+        if self.P['BFGS']==1:
+            if self.P['precon']==1:
+                for i in range(0,self.P['rerunning']):
+                    #pstate, pderiv = state_to_precon(L_inv, L_adj, matmul(self.V,E_final, matmul(self.V,E_prior), np.matmul(self.V,Adjoint_priorint(E_final)))
+                    self.precon_prior=matmul(self.V,E_final)
+                    print('precon_deriv')
+                    state_opt=optimize.fmin_bfgs(Cost_precon,self.precon_prior,Adjoint_precon,gtol=self.P['accuracy'],disp=0)
+                    #E_final = np.matmul(self.Vi,state_opt)
+                    E_final=state_opt
+                    print('================================================')
+                    print('--- one run ended ---')
+                    print('================================================')
+            elif self.P['precon']==0:
+                for i in range(0,self.P['rerunning']):
+                    E_final=optimize.fmin_bfgs(Cost,E_final,Adjoint_priorint,gtol=self.P['accuracy'],disp=0)
+                    print('================================================')
+                    print('--- one run ended ---')
+                    print('================================================')
+        if self.P['BFGS']==0:
+            if self.P['precon']==1:
+                for i in range(0,self.P['rerunning']):
+                    self.precon_prior=matmul(self.V,E_final)
+                    print('precon_deriv')
+                    state_opt=optimize.fmin_cg(Cost_precon,self.precon_prior,Adjoint_precon,gtol=self.P['accuracy'],disp=0)
+                    #E_final = np.matmul(self.Vi,state_opt)
+                    E_final=state_opt
+                    
+                    
+                    #pstate, pderiv = state_to_precon(L_inv, L_adj, E_final, E_prior, Adjoint_priorint(E_final))
+                    #state_opt=optimize.fmin_cg(Cost,pstate,Adjoint_priorint,gtol=self.P['accuracy'],disp=0)
+                    #E_final = precon_to_state( L_preco, state_opt, E_prior )
+                    print('================================================')
+                    print('--- one run ended ---')
+                    print('================================================')
+            elif self.P['precon']==0:
+                for i in range(0,self.P['rerunning']):
+                    E_final=optimize.fmin_cg(Cost,E_final,Adjoint_priorint,gtol=self.P['accuracy'],disp=0)
+                    print('================================================')
+                    print('--- one run ended ---')
+                    print('================================================')
                 
         self.E_final=E_final
         print('--- Adjoint modelling completed ---')
@@ -188,9 +223,9 @@ def Cost(x):
     M = TracerModel(Parameters,method=m.method,initialvalue=0)
     M.integrateModel()
     Obs=M.results[:,m.P['stations']]
-    Cost=1/m.P['sigmaxe']*sum((np.array(m.Obs_true)-np.array(Obs))**2)+1/m.P['sigmaxa']*sum((np.array(x)-np.array(E_prior))**2)
-    m.Costres=Cost
-    return Cost
+    Costf=1/m.P['sigmaxe']*sum((np.array(m.Obs_true)-np.array(Obs))**2)+np.matmul(np.array(x)-np.array(E_prior),np.matmul(m.Sai,np.array(x)-np.array(E_prior)))
+    m.Costres=Costf
+    return Costf
 
 def Adjoint_priorint(x):
     '''
@@ -209,10 +244,40 @@ def Adjoint_priorint(x):
         C_Adjoint = np.matmul(np.transpose(m.Transport),C_Adjoint)
         E_Adjoint = E_Adjoint + C_Adjoint*m.P['dt']
     derivative = 2*np.matmul(m.Sai,x-m.P['E_prior'])+ 2*E_Adjoint
-    deriv=np.dot(m.L_adj,derivative)#???????????????????!
-    print ('Cost function', Cost(x), 'Squared gradient',np.dot(deriv,deriv))
-    m.deriv=deriv
-    return deriv
+    print ('Cost function', Cost(x), 'Squared gradient',np.dot(derivative,derivative))
+    m.deriv=derivative
+    return derivative
+    
+def Adjoint_precon(x):
+    '''
+    Adjoint model with given E_prior so that it has only 1 element
+    '''
+    Parameters_iteration = {'xmax':m.P['xmax'],'dx':m.P['dx'],'tmax':m.P['tmax'],'dt':m.P['dt'],'u0':m.P['u0'],'k':m.P['k'],'E':np.matmul(m.Vi,x)}
+    M = TracerModel(Parameters_iteration,method=m.method,initialvalue=0)
+    M.integrateModel()
+    Obs_iteration=M.results[:,m.P['stations']]
+    forcing = np.matmul(m.Sei,np.array(Obs_iteration)-np.array(m.Obs_true))  # (Hx-y)
+    C_Adjoint = np.zeros(m.P['nx'])
+    E_Adjoint = np.zeros(m.P['nx'])
+    timevec=range(0,m.P['nt'])
+    for times in timevec[::-1]:
+        C_Adjoint[stations] = C_Adjoint[m.P['stations']] + forcing[times]
+        C_Adjoint = np.matmul(np.transpose(m.Transport),C_Adjoint)
+        E_Adjoint = E_Adjoint + C_Adjoint*m.P['dt']
+    derivative = 2*(x-np.matmul(m.V,m.P['E_prior']))+ 2*E_Adjoint
+    print ('Cost function', Cost(x), 'Squared gradient',np.dot(derivative,derivative))
+    derivative=np.matmul(np.linalg.inv(m.Vi),derivative)
+    m.deriv=derivative
+    return derivative
+    
+def Cost_precon(x):
+    Parameters = {'xmax':m.P['xmax'],'dx':m.P['dx'],'tmax':m.P['tmax'],'dt':m.P['dt'],'u0':m.P['u0'],'k':m.P['k'],'E':np.matmul(m.Vi,x)}
+    M = TracerModel(Parameters,method=m.method,initialvalue=0)
+    M.integrateModel()
+    Obs=M.results[:,m.P['stations']]
+    Costf=1/m.P['sigmaxe']*sum((np.array(m.Obs_true)-np.array(Obs))**2)+sum((np.matmul(m.V,x)-np.matmul(m.V,np.array(E_prior)))**2)
+    m.Costres=Costf
+    return Costf
     
 def state_to_precon( L_inv, L_adj, state, state_apri, deriv ):
     '''
