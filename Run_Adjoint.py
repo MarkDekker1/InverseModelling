@@ -5,7 +5,7 @@
 import numpy as np
 import time as T
 
-xmax            =   250
+xmax            =   100
 u0              =   5
 tmax            =   10* xmax / u0
 k               =   0.1
@@ -20,14 +20,26 @@ sources_guess   =   [100000]               #for determining prior
 stations        =   np.arange(0,xmax,1)     #all points have stations
 stations        =   [20,40,60,80]
 #stations        =   np.random.randint(low=0,high=xmax,size=5)
-sigmaxa         =   1
-sigmaxe         =   0.001
+sigmaxa         =   10
+sigmaxe         =   0.02
 accuracy        =   1e-5
 noisemult       =   0
-noiseadd        =   0.001
-Preconditioning =   0
-Rerunning       =   5
-Offdiags        =   1
+noiseadd        =   0.02
+Preconditioning =   1
+Rerunning       =   1
+Offdiags        =   0
+BFGS            =   1
+Sa_vec          =   np.zeros(xmax)+sigmaxa/10.
+#for i in range(0,13):
+#    Sa_vec[i]=sigmaxa
+#for j in range(45,55):
+#    Sa_vec[i]=sigmaxa
+#for i in [0,10,50]:
+#    Sa_vec[i]=sigmaxa
+for i in range(0,25):
+    Sa_vec[i]=sigmaxa
+for i in range(40,70):
+    Sa_vec[i]=sigmaxa
         
 # ------------------------------------------------------
 # Emission vectors
@@ -67,7 +79,9 @@ Parameters = {
     'precon':Preconditioning,
     'rerunning':Rerunning,
     'accuracy':accuracy,
-    'Offdiags':Offdiags
+    'Offdiags':Offdiags,
+    'BFGS':BFGS,
+    'Sa_vec':Sa_vec
     }
 
 # ------------------------------------------------------
