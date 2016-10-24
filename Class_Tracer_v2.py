@@ -329,12 +329,12 @@ class TracerModel(object):
             b0 = 1 - self.P['gamma']
             bp1 = 0
             Mtot = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
-            #Mtot2 = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
+            Mtot2 = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
 
             # assign matrices to properties
             #self.Mtot = Mtot
             self.Mtot = sp.csc_matrix(Mtot)
-            #self.Mtot2 = Mtot2
+            self.Mtot2 = Mtot2
             self.M2 = 0
 
             # MODEL RUN
@@ -359,24 +359,26 @@ class TracerModel(object):
             b0 = 1 - self.P['gamma']**2
             bp1 = self.P['gamma'] / 2 * (self.P['gamma'] -1)
             Mtot = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
+            Mtot2 = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
 
             # assign matrices to properties
             self.Mtot = Mtot
             self.M2 = 0
+            self.Mtot2 = Mtot2
 
             # MODEL RUN
             start_time = T.time()
-            print('================================================')
-            print('Starting model run with method %s' % self.method)
+            #print('================================================')
+            #print('Starting model run with method %s' % self.method)
 
             for ti in range(0,self.P['nt']-1):
                 self.results[ti+1,:] = np.matmul(Mtot,self.results[ti,:]) + self.P['dt'] * self.P['E']
 
-                if np.mod(ti,np.int(self.P['nt']/10))==0:
-                    print('Progress is at ', ti/self.P['nt']*100., 'percent')
-            print('Total time required: %.2f seconds' % (T.time() - start_time))
-            print('Model run finished')
-            print('================================================')
+            #    if np.mod(ti,np.int(self.P['nt']/10))==0:
+            #        print('Progress is at ', ti/self.P['nt']*100., 'percent')
+            #print('Total time required: %.2f seconds' % (T.time() - start_time))
+            #print('Model run finished')
+            #print('================================================')
             # END OF MODEL RUN
 
         elif self.method == 'Leapfrog':
@@ -384,16 +386,18 @@ class TracerModel(object):
             b0 = 0
             bp1 = - self.P['gamma']
             Mtot = self.get_matrix(bm1,b0,bp1,self.P['k'],2*self.P['dt'],self.P['nx'])
+            Mtot2 = self.get_matrix(bm1,b0,bp1,self.P['k'],self.P['dt'],self.P['nx'])
             M2 = np.diag(np.ones(self.P['nx'])) # matrix for step n-1
 
             # assign matrices to properties
             self.Mtot = Mtot
             self.M2 = M2
+            self.Mtot2 = Mtot2
 
             # MODEL RUN
             start_time = T.time()
-            print('================================================')
-            print('Starting model run with method %s' % self.method)
+            #print('================================================')
+            #print('Starting model run with method %s' % self.method)
 
             # For Leapfrog, start with one initial Euler step
             MEuler = self.get_matrix(0.5*self.P['gamma'],1-0.5*self.P['gamma'],0,self.P['k'],self.P['dt'],self.P['nx'])
@@ -403,11 +407,11 @@ class TracerModel(object):
             for ti in range(1,self.P['nt']-1):
                 self.results[ti+1,:] = np.matmul(Mtot,self.results[ti,:]) + np.matmul(M2,self.results[ti-1,:]) + 2*self.P['dt'] * self.P['E']
 
-                if np.mod(ti,np.int(self.P['nt']/10))==0:
-                    print('Progress is at ', ti/self.P['nt']*100., 'percent')
-            print('Total time required: %.2f seconds' % (T.time() - start_time))
-            print('Model run finished')
-            print('================================================')
+            #    if np.mod(ti,np.int(self.P['nt']/10))==0:
+            #        print('Progress is at ', ti/self.P['nt']*100., 'percent')
+            #print('Total time required: %.2f seconds' % (T.time() - start_time))
+            #print('Model run finished')
+            #print('================================================')
             # END OF MODEL RUN
 
         else:

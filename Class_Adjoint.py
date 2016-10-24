@@ -1,6 +1,6 @@
 from numpy import *
 import numpy as np
-from Class_Tracer_v2 import *
+#from Class_Tracer_v2 import *
 from scipy.optimize import *
 import matplotlib.pyplot as plt
 import matplotlib
@@ -50,7 +50,7 @@ class AdjointModel(object):
             Obs_true.append( Obs_true_raw[i]*(1+noisemult*np.random.uniform(low=-1,high=1,size=(len(Obs_true_raw[i]))))+noiseadd*np.random.uniform(low=-1,high=1,size=(len(Obs_true_raw[i]))))
         self.Obs_true=np.array(Obs_true)
         self.Obs_true_raw=Obs_true_raw
-        self.Transport = m_true.Mtot2       
+        self.Transport = m_true.Mtot2
         
         # Preconditioning
         if self.P['precon']==1:
@@ -73,8 +73,8 @@ class AdjointModel(object):
         self.method = method
 
     def TestAdjoint(self,alpha,element):
-        Cost_prior = AdjointModel.Cost(self,self.P['E_prior'])
-        Derivative = AdjointModel.Adjoint(self,self.P['E_prior'],self.P['E_prior'])
+        Cost_prior = Cost(self.P['E_prior'])
+        Derivative = Adjoint(self.P['E_prior'],self.P['E_prior'])
         E_test=np.zeros(self.P['nx'])
         E0=1
         for j in range(0,self.P['nx']):
@@ -83,7 +83,7 @@ class AdjointModel(object):
             if len(where(np.array(sources_guess)==x)[0])>0:
                 E_test[j]=E0
         E_test[element]=E_test[element]+alpha
-        Cost_test = AdjointModel.Cost(self,E_test)
+        Cost_test = Cost(E_test)
         
         DE=np.zeros(self.P['nx'])-0.000000001
         E_new=np.zeros(self.P['nx'])
@@ -95,7 +95,7 @@ class AdjointModel(object):
                 E_new[j]=E0
         print(Derivative)
         E_new=E_new+DE*Derivative
-        Cost_new = AdjointModel.Cost(self,E_new)
+        Cost_new = Cost(E_new)
         
         print('================================================')
         print('--- Testing ---')
@@ -112,9 +112,10 @@ class AdjointModel(object):
         L_inv   = np.linalg.inv(L_preco)
         E_final = self.P['E_prior']
         
-        print('================================================')
-        print('--- Adjoint modelling started ---')
-        print('================================================')
+        if Print==1:    
+            print('================================================')
+            print('--- Adjoint modelling started ---')
+            print('================================================')
         
         E_final = self.P['E_prior']
         if self.P['BFGS']==1:
@@ -122,24 +123,24 @@ class AdjointModel(object):
                 for i in range(0,self.P['rerunning']):
                     #pstate, pderiv = state_to_precon(L_inv, L_adj, matmul(self.V,E_final, matmul(self.V,E_prior), np.matmul(self.V,Adjoint_priorint(E_final)))
                     self.precon_prior=matmul(self.V,E_final)
-                    print('precon_deriv')
                     state_opt=optimize.fmin_bfgs(Cost_precon,self.precon_prior,Adjoint_precon,gtol=self.P['accuracy'],disp=0)
                     #E_final = np.matmul(self.Vi,state_opt)
                     E_final=state_opt
-                    print('================================================')
-                    print('--- one run ended ---')
-                    print('================================================')
+                    if Print==1:
+                        print('================================================')
+                        print('--- one run ended ---')
+                        print('================================================')
             elif self.P['precon']==0:
                 for i in range(0,self.P['rerunning']):
                     E_final=optimize.fmin_bfgs(Cost,E_final,Adjoint_priorint,gtol=self.P['accuracy'],disp=0)
-                    print('================================================')
-                    print('--- one run ended ---')
-                    print('================================================')
+                    if Print==1:
+                        print('================================================')
+                        print('--- one run ended ---')
+                        print('================================================')
         if self.P['BFGS']==0:
             if self.P['precon']==1:
                 for i in range(0,self.P['rerunning']):
                     self.precon_prior=matmul(self.V,E_final)
-                    print('precon_deriv')
                     state_opt=optimize.fmin_cg(Cost_precon,self.precon_prior,Adjoint_precon,gtol=self.P['accuracy'],disp=0)
                     #E_final = np.matmul(self.Vi,state_opt)
                     E_final=state_opt
@@ -148,19 +149,27 @@ class AdjointModel(object):
                     #pstate, pderiv = state_to_precon(L_inv, L_adj, E_final, E_prior, Adjoint_priorint(E_final))
                     #state_opt=optimize.fmin_cg(Cost,pstate,Adjoint_priorint,gtol=self.P['accuracy'],disp=0)
                     #E_final = precon_to_state( L_preco, state_opt, E_prior )
-                    print('================================================')
-                    print('--- one run ended ---')
-                    print('================================================')
+                    if Print==1:
+                        print('================================================')
+                        print('--- one run ended ---')
+                        print('================================================')
             elif self.P['precon']==0:
                 for i in range(0,self.P['rerunning']):
                     E_final=optimize.fmin_cg(Cost,E_final,Adjoint_priorint,gtol=self.P['accuracy'],disp=0)
-                    print('================================================')
-                    print('--- one run ended ---')
-                    print('================================================')
+                    if Print==1:
+                        print('================================================')
+                        print('--- one run ended ---')
+                        print('================================================')
                 
         self.E_final=E_final
-        print('--- Adjoint modelling completed ---')
-        print('================================================')
+        
+        Parameters_iteration = {'xmax':self.P['xmax'],'dx':self.P['dx'],'tmax':self.P['tmax'],'dt':self.P['dt'],'u0':self.P['u0'],'k':self.P['k'],'E':self.E_final}
+        m = TracerModel(Parameters_iteration,method=self.method,initialvalue=0)
+        m.integrateModel()
+        self.Obs_final=m.results[:,stations]
+        if Print==1:
+            print('--- Adjoint modelling completed ---')
+            print('================================================')
         
     def Plots(self,Station):
         
@@ -174,7 +183,7 @@ class AdjointModel(object):
         plt.ylabel('Emission strength',fontsize=15)
         plt.tick_params(axis='both', which='major', labelsize=15)
         plt.xlim([0,self.P['xmax']])
-        plt.ylim([-0.2,1])
+        plt.ylim([0,1])
         plt.legend(fontsize=9)
         fig.tight_layout()
         plt.show()
@@ -204,7 +213,7 @@ class AdjointModel(object):
 
 def Adjoint(x,x_prior):
     Parameters_iteration = {'xmax':m.P['xmax'],'dx':m.P['dx'],'tmax':m.P['tmax'],'dt':m.P['dt'],'u0':m.P['u0'],'k':m.P['k'],'E':x}
-    M = TracerModel(Parameters_iteration,method='Upwind',initialvalue=0)
+    M = TracerModel(Parameters_iteration,method=m.method,initialvalue=0)
     M.integrateModel()
     Obs_iteration=M.results[:,stations]
     forcing = np.matmul(m.Sei,np.array(Obs_iteration)-np.array(m.Obs_true))  # (Hx-y)
@@ -212,11 +221,12 @@ def Adjoint(x,x_prior):
     C_Adjoint = np.zeros(nx)
     E_Adjoint = np.zeros(nx)
     for times in timevec[::-1]:
-        C_Adjoint[stations] = C_Adjoint[stations] + forcing[times]
+        C_Adjoint[stations] = C_Adjoint[stations] + forcing[times]*m.P['dt']
         C_Adjoint = np.matmul(np.transpose(m.Transport),C_Adjoint)
-        E_Adjoint = E_Adjoint + C_Adjoint*Dt
+        E_Adjoint = E_Adjoint + C_Adjoint
     derivative = 2*np.matmul(m.Sai,x-x_prior)+ 2*E_Adjoint   
     m.derivative=derivative
+    return derivative
     
 def Cost(x):
     Parameters = {'xmax':m.P['xmax'],'dx':m.P['dx'],'tmax':m.P['tmax'],'dt':m.P['dt'],'u0':m.P['u0'],'k':m.P['k'],'E':x}
@@ -240,12 +250,15 @@ def Adjoint_priorint(x):
     E_Adjoint = np.zeros(m.P['nx'])
     timevec=range(0,m.P['nt'])
     for times in timevec[::-1]:
-        C_Adjoint[stations] = C_Adjoint[m.P['stations']] + forcing[times]
+        C_Adjoint[stations] = C_Adjoint[m.P['stations']] + forcing[times]*m.P['dt']
         C_Adjoint = np.matmul(np.transpose(m.Transport),C_Adjoint)
-        E_Adjoint = E_Adjoint + C_Adjoint*m.P['dt']
+        E_Adjoint = E_Adjoint + C_Adjoint#*m.P['dt']
     derivative = 2*np.matmul(m.Sai,x-m.P['E_prior'])+ 2*E_Adjoint
-    print ('Cost function', Cost(x), 'Squared gradient',np.dot(derivative,derivative))
+    if Print==1:
+        print ('Cost function', Cost(x), 'Squared gradient',np.dot(derivative,derivative))
     m.deriv=derivative
+    m.derivative=np.dot(derivative,derivative)
+    m.cost=Cost(x)
     return derivative
     
 def Adjoint_precon(x):
@@ -261,13 +274,16 @@ def Adjoint_precon(x):
     E_Adjoint = np.zeros(m.P['nx'])
     timevec=range(0,m.P['nt'])
     for times in timevec[::-1]:
-        C_Adjoint[stations] = C_Adjoint[m.P['stations']] + forcing[times]
+        C_Adjoint[stations] = C_Adjoint[m.P['stations']] + forcing[times]*m.P['dt']
         C_Adjoint = np.matmul(np.transpose(m.Transport),C_Adjoint)
-        E_Adjoint = E_Adjoint + C_Adjoint*m.P['dt']
+        E_Adjoint = E_Adjoint + C_Adjoint#*m.P['dt']
     derivative = 2*(x-np.matmul(m.V,m.P['E_prior']))+ 2*E_Adjoint
-    print ('Cost function', Cost(x), 'Squared gradient',np.dot(derivative,derivative))
+    if Print==1:
+        print ('Cost function', Cost(x), 'Squared gradient',np.dot(derivative,derivative))
     derivative=np.matmul(np.linalg.inv(m.Vi),derivative)
     m.deriv=derivative
+    m.derivative=np.dot(derivative,derivative)
+    m.cost=Cost(x)
     return derivative
     
 def Cost_precon(x):

@@ -42,7 +42,7 @@ for times in range(2):
     c = c + em
     c = matmul(tp,c)
     obs.extend([c[0],c[1]])
-print('simulation obs:', obs) 
+print('simulation obs:', obs)
 cost = sum((array(obs)-array(obst))**2)
 print('cost function:',cost)
 forcing = array(obs)-array(obst)  # (Hx-y)

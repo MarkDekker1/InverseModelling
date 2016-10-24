@@ -7,24 +7,24 @@ from numpy.linalg import matrix_power,inv
 
 # FORWARD PARAMETERS
 #Constants
-xmax    =   100 # 40000e3
+xmax    =   300 # 40000e3
 u0      =   5
 tmax    =   10* xmax / u0
 k       =   0.1 # 1.93e-7 # based on 60 day lifetime of CO
 gamma   =   0.9
-Dx      =   xmax / 100
+Dx      =   xmax / xmax
 Dt      =   gamma * Dx / u0 #0.1
 E0      =   1 # source strength
-sources =   [10,50,60] # source locations as percentage of xmax
+sources =   [10,30,60,90] # source locations as percentage of xmax
 #sources =   [1,10,50] # source locations as percentage of xmax
 
 # INVERSE PARAMETERS
-stations    = [20,40,60,80] # measurement stations as percentage of xmax
+stations    = [33] # measurement stations as percentage of xmax
 # error estimates 
-sigmaxa     = 0.001 #10        #e-9 #20#0.00001 # error in the prior
-sigmaxe     = 2e-5  #0.0000001 #    #0.00000000001 # error in the observations
+sigmaxa     = 2 #10        #e-9 #20#0.00001 # error in the prior
+sigmaxe     = 0.004  #0.0000001 #    #0.00000000001 # error in the observations
 noiseadd    = 0.0040#0.01 # additive noise amplitude on measurements in concentration units
-noisemult   = 0.020#0.01 # multiplicative noise amplitude on measurements (fraction)
+noisemult   = 0#0.020#0.01 # multiplicative noise amplitude on measurements (fraction)
 # ======================================
 # DERIVED PARAMETERS
 nx      =   np.int(xmax/Dx)
@@ -87,3 +87,20 @@ ax.plot(m1.x,m1.P['E'])
 ax.plot(m1.x,m1.Einv)
 
 print(m1.rmsdev)
+
+# Forward step
+Parameter_initial = {
+    'xmax':xmax,
+    'dx':Dx,
+    'tmax':tmax,
+    'dt':Dt,
+    'u0':u0,
+    'k':k,
+    'E':m1.Einv
+    }
+
+# Forward integration
+m2 = TracerModel(Parameter_initial,method='Upwind',initialvalue=0)
+m2.integrateModel()
+
+m2.results

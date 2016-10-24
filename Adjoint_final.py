@@ -26,8 +26,8 @@ stations    =   [20,40,60,80]
 nx          =   np.int(xmax/Dx)
 nt          =   np.int(tmax/Dt)
 xvec        =   np.arange(0,xmax,Dx)
-sigmaxa     =   0.001
-sigmaxe     =   2e-8
+sigmaxa     =   2
+sigmaxe     =   0.02
 epsilon     =   0.000000000000001
 J           =   100 # amount of adjoined iterations (should be equal to time?)
 
@@ -176,6 +176,8 @@ factor=1.5
 amountforce=0
 amountup=0
 amountdown=0
+Sei_2=np.diag(np.zeros(nx)+sigmaxe)
+A=Sai+np.matmul(np.transpose(Transport),np.matmul(Sei_2,Transport))
 
 while j<J and K>mean(abs(E_new - E_old)) or i<=1:
     K=mean(abs(Adjoined(E_old,E_prior)))
@@ -183,21 +185,22 @@ while j<J and K>mean(abs(E_new - E_old)) or i<=1:
     E_new = E_new - epsilon * Adjoined(E_old,E_prior)
     meandif_vec[j]=mean(abs(E_new - E_old))
     absmeanadj_vec[j]=mean(abs(Adjoined(E_new,E_prior)))
+    epsilon=np.matmul(np.transpose(Adjoined(E_old,E_prior)),Adjoined(E_old,E_prior))/np.matmul(np.transpose(Adjoined(E_old,E_prior)),np.matmul(A,Adjoined(E_old,E_prior)))
     epsilonvec[j]=epsilon
-    if j>=1:
-        Now=absmeanadj_vec[j]
-        Before=absmeanadj_vec[j-1]
-        if Now>Before*2:
-            epsilon=epsilon/5
-            amountforce=amountforce+1
-        
-        
-        if abs(Now-Before)/Before<0.03:
-            epsilon=epsilon*factor
-            amountup=amountup+1
-        if abs(Now-Before)/Before>0.08:
-            epsilon=epsilon/factor
-            amountdown=amountdown+1
+#    if j>=1:
+#        Now=absmeanadj_vec[j]
+#        Before=absmeanadj_vec[j-1]
+#        if Now>Before*2:
+#            epsilon=epsilon/5
+#            amountforce=amountforce+1
+#        
+#        
+#        if abs(Now-Before)/Before<0.03:
+#            epsilon=epsilon*factor
+#            amountup=amountup+1
+#        if abs(Now-Before)/Before>0.08:
+#            epsilon=epsilon/factor
+#            amountdown=amountdown+1
     
     
     j=j+1
