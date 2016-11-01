@@ -7,7 +7,7 @@ amount=100
 Errors_o=[]
 Errors_e=[]
 Max=[]
-amountstations=4
+amountstations=1
 
 
 for multi in range(0,amount):
@@ -130,6 +130,7 @@ E_Obs_true_raws_1=np.array(Obs_true_raws)
 E_Obs_trues_1=np.array(Obs_trues)
 stations_vec_1=stations_vec
 Max_ind_1=where(Max==max(Max))
+Max_1=Max
 #%%
 Best_ind_1=np.array(Errorso_1).argsort()[:amountmaxmin][::-1]
 Worst_ind_1=np.array(Errorso_1).argsort()[-amountmaxmin:][::-1]
@@ -167,9 +168,10 @@ E_Obs_true_raws_1_u=np.array(Obs_true_raws)
 E_Obs_trues_1_u=np.array(Obs_trues)
 stations_vec_1_u=stations_vec
 Max_ind_1_u=where(Max==max(Max))
+Max_1_u=Max
 #%%
-Best_ind_1_u=np.array(Errorso_1).argsort()[:amountmaxmin][::-1]
-Worst_ind_1_u=np.array(Errorso_1).argsort()[-amountmaxmin:][::-1]
+Best_ind_1_u=np.array(Errorso_1_u).argsort()[:amountmaxmin][::-1]
+Worst_ind_1_u=np.array(Errorso_1_u).argsort()[-amountmaxmin:][::-1]
 #%%
 Errorse_4_u=np.array(Errors_e)
 Errorso_4_u=np.array(Errors_o)
@@ -316,3 +318,16 @@ plt.ylim([-0.2,1])
 #plt.legend(loc='best')
 fig.tight_layout()
 plt.show()
+
+#%%
+#statistical variables
+Ess=E_finals_1
+r_E=[]
+for i in range(0,len(Ess)):
+    r_E.append(np.corrcoef(Ess[i],E_true)[0][1])
+    
+Css=E_Obs_finals_1
+Cst=E_Obs_true_raws_1
+r_C=[]
+for i in range(0,len(Ess)):
+    r_C.append(np.corrcoef(np.transpose(Css[i]),np.transpose(Cst[i]))[0][1])

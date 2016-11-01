@@ -7,10 +7,10 @@ import time as T
 
 xmax            =   100
 u0              =   5
-tmax            =   10* xmax / u0
+tmax            =   1000#10* xmax / u0
 k               =   0.1
 gamma           =   0.9
-Dx              =   xmax / xmax
+Dx              =   1#xmax / 20
 Dt              =   gamma * Dx / u0
 E0              =   1
 sources         =   [10,30,60,90]
@@ -19,10 +19,10 @@ sources_guess   =   [100000]               #for determining prior
 stations        =   np.arange(0,xmax,1)     #all points have stations
 #stations        =   [20,40,60,80]
 stations        =   np.random.randint(low=0,high=xmax,size=1)
-stations        =   [26,46,61,73,92,95]
+stations        =   [11,26,48,61]
 #stations        =   np.arange(0,100,1)
-sigmaxa         =   0.5
-sigmaxe         =   0.4
+sigmaxa         =   2
+sigmaxe         =   0.004
 accuracy        =   1e-5
 noisemult       =   0
 noiseadd        =   0.004
@@ -30,7 +30,7 @@ Preconditioning =   0
 Rerunning       =   5
 Offdiags        =   0
 BFGS            =   1
-Print           =   0
+Print           =   1
 Sa_vec          =   np.zeros(np.int(xmax/Dx))+sigmaxa#/10.
 #for i in range(0,13):
 #    Sa_vec[i]=sigmaxa
@@ -53,7 +53,7 @@ xvec        =   np.arange(0,xmax,Dx)
 E_prior     =   np.zeros(nx)
 E_true      =   np.zeros(nx)
 for j in range(0,nx):
-    x       =   j*Dx
+    x       =   np.int(np.round(j*Dx))
     xvec[j] =   x
     if len(np.where(np.array(sources_guess)==x)[0])>0:
         E_prior[j]=E0
@@ -148,5 +148,23 @@ plt.tick_params(axis='both', which='major', labelsize=fontsize1)
 plt.xlim([0,xmax])
 plt.ylim([-0.2,1])
 #plt.legend(loc='best')
+fig.tight_layout()
+plt.show()
+#%%
+
+time_a=[0.31,0.37,0.54,0.66,0.98,1.35,1.33,1.33,1.54,1.64,2.51,3.44,6.61,11.29,18.19,40.31]
+size_a=[10,20,30,40,50,60,70,80,90,100,150,200,250,400,500,1000]
+time_d=[1e-3,10**(1.1),10**(5.2)]
+size_d=[1e1,1e2,1e3]
+
+a=plt.loglog(size_a,time_a,label='Adjoint',linewidth=4)
+plt.scatter(size_a,time_a,c=a[0].get_color(),s=100)
+b=plt.loglog(size_d,time_d,label=r'$\Delta$x$^{4.1}$',linewidth=4)
+#plt.scatter(size_d,time_d,c=b[0].get_color(),s=100)
+plt.xlabel(r'T/$\Delta$x',fontsize=fontsize1)
+plt.ylabel('Running time',fontsize=fontsize1)
+plt.tick_params(axis='both', which='major', labelsize=fontsize1)
+plt.xlim([1e1,1e3])
+plt.legend(loc='best',fontsize=15)
 fig.tight_layout()
 plt.show()
